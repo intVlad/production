@@ -47,7 +47,7 @@ const statusTranslations = {
 const app = {
     state: {
         currentTask: null,
-        dashboardInterval: null,
+        dashboardTimeout: null,
         html5QrcodeScanner: null
     },
 
@@ -58,19 +58,29 @@ const app = {
         document.getElementById(`${viewId}-view`).classList.add('active');
         document.getElementById(`nav-${viewId}`).classList.add('active');
 
-        if (this.state.dashboardInterval) {
-            clearInterval(this.state.dashboardInterval);
-            this.state.dashboardInterval = null;
+        if (this.state.dashboardTimeout) {
+            clearTimeout(this.state.dashboardTimeout);
+            this.state.dashboardTimeout = null;
         }
 
         if (viewId === 'dashboard') {
             this.loadDashboard();
             this.loadWorkersForSelect();
             this.loadModelsForSelect();
-            this.state.dashboardInterval = setInterval(() => this.loadDashboard(), 3000);
+            this.scheduleDashboardRefresh();
         } else if (viewId === 'worker') {
             this.loadWorkersForSelect().then(() => this.loadWorkerTasks());
         }
+    },
+
+    scheduleDashboardRefresh() {
+        this.state.dashboardTimeout = setTimeout(async () => {
+            await this.loadDashboard();
+            // Only schedule next refresh if we're still on the dashboard view
+            if (document.getElementById('dashboard-view').classList.contains('active')) {
+                this.scheduleDashboardRefresh();
+            }
+        }, 5000);
     },
 
     async loadTask() {
@@ -304,7 +314,7 @@ const app = {
             
         } catch (error) {
             console.error(error);
-            console.log("Не вдалося завантажити дані дашборда.");
+            showToast('Не вдалося завантажити дані дашборда.', 'error');
         }
     },
 
@@ -334,6 +344,7 @@ const app = {
             }
         } catch (err) {
             console.error(err);
+            showToast('Не вдалося завантажити список працівників', 'error');
         }
     },
     
@@ -351,6 +362,7 @@ const app = {
             });
         } catch (err) {
             console.error(err);
+            showToast('Не вдалося завантажити список моделей', 'error');
         }
     },
 

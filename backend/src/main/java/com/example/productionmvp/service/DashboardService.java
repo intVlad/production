@@ -3,6 +3,7 @@ package com.example.productionmvp.service;
 import com.example.productionmvp.model.*;
 import com.example.productionmvp.repository.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -12,6 +13,7 @@ import java.time.Duration;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 public class DashboardService {
 
     private final ProductInstanceRepository productInstanceRepository;
