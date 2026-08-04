@@ -1,6 +1,6 @@
 // Determine API URL based on current environment
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isLocal ? 'http://localhost:8080/api' : 'https://YOUR_BACKEND_URL.onrender.com/api';
+const API_BASE_URL = isLocal ? 'http://localhost:8080/api' : 'https://production-mvp.onrender.com/api';
 
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
