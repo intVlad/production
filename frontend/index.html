@@ -19,8 +19,8 @@
         <div class="nav-content">
             <h1 class="logo">ProdFlow</h1>
             <div class="nav-links">
-                <span id="live-indicator" style="display: none; align-items: center; gap: 0.5rem; color: #10b981; font-size: 0.9em; font-weight: 600; margin-right: 1rem;">
-                    <span class="live-dot" style="display: inline-block; width: 8px; height: 8px; background-color: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></span>Live
+                <span id="live-indicator" style="display: flex; align-items: center; gap: 0.5rem; color: #10b981; font-size: 0.9em; font-weight: 600; margin-right: 1rem;">
+                    <span id="live-dot" class="live-dot" style="display: inline-block; width: 8px; height: 8px; background-color: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></span><span id="live-text">Live</span>
                 </span>
                 <button onclick="app.switchView('worker')" class="nav-btn active" id="nav-worker">Працівник</button>
                 <button onclick="app.switchView('dashboard')" class="nav-btn" id="nav-dashboard">Менеджер</button>

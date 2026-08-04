@@ -613,4 +613,28 @@ const app = {
 
 document.addEventListener('DOMContentLoaded', () => {
     app.loadWorkersForSelect().then(() => app.loadWorkerTasks());
+    
+    // Initial check
+    updateConnectionStatus();
 });
+
+window.addEventListener('online', updateConnectionStatus);
+window.addEventListener('offline', updateConnectionStatus);
+
+function updateConnectionStatus() {
+    const liveIndicator = document.getElementById('live-indicator');
+    const liveDot = document.getElementById('live-dot');
+    const liveText = document.getElementById('live-text');
+    
+    if (navigator.onLine) {
+        liveIndicator.style.color = '#10b981';
+        liveDot.style.backgroundColor = '#10b981';
+        liveDot.style.animation = 'pulse 2s infinite';
+        liveText.innerText = 'Live';
+    } else {
+        liveIndicator.style.color = '#ef4444';
+        liveDot.style.backgroundColor = '#ef4444';
+        liveDot.style.animation = 'none';
+        liveText.innerText = 'Offline';
+    }
+}
