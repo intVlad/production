@@ -15,8 +15,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        # Default to H2 Dialect. Spring Boot auto-detects Postgres when url changes.
-        dialect: org.hibernate.dialect.H2Dialect
+        # Let Spring Boot auto-detect dialect based on driver/url (works for both H2 and Postgres)
+        # dialect: org.hibernate.dialect.H2Dialect
 
 server:
   port: 8080
