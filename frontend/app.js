@@ -277,14 +277,32 @@ const app = {
             tbody.innerHTML = '';
             
             if (data.activeTasks.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" style="text-align: center">Немає активних завдань</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center">Немає активних завдань</td></tr>`;
             } else {
+                let workerOptions = '<option value="">Не призначати (автоматично)</option>';
+                const workerSelect = document.getElementById('worker-select');
+                if (workerSelect) {
+                    workerOptions = workerSelect.innerHTML;
+                }
+                
                 data.activeTasks.forEach(task => {
+                    const statusClass = task.status === 'BLOCKED' ? 'badge-danger' : (task.status === 'PAUSED' ? 'badge-warning' : 'badge-primary');
+                    const statusTranslation = statusTranslations[task.status] || task.status;
+                    
                     tbody.innerHTML += `
                         <tr>
                             <td><strong>${task.productSerialNumber}</strong></td>
                             <td>${task.stage}</td>
+                            <td><span class="badge ${statusClass}">${statusTranslation}</span></td>
                             <td>${task.worker}</td>
+                            <td>
+                                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                    <select id="assign-worker-${task.taskId}" style="padding: 0.3rem; border-radius: 4px; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); outline: none;">
+                                        ${workerOptions}
+                                    </select>
+                                    <button class="btn btn-outline" style="padding: 0.3rem 0.5rem; font-size: 0.8em;" onclick="app.assignTask('${task.taskId}')">Зберегти</button>
+                                </div>
+                            </td>
                         </tr>
                     `;
                 });
@@ -570,6 +588,25 @@ const app = {
                 btn.classList.remove('loading');
                 btn.innerText = 'Створити модель';
             }
+        }
+    },
+
+    async assignTask(taskId) {
+        const workerId = document.getElementById(`assign-worker-${taskId}`).value;
+        try {
+            const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workerId })
+            });
+
+            if (!response.ok) throw new Error('Помилка при призначенні');
+            
+            showToast('Працівника успішно призначено', 'success');
+            this.loadDashboard();
+        } catch (error) {
+            console.error(error);
+            showToast('Помилка призначення працівника', 'error');
         }
     }
 };

@@ -120,7 +120,9 @@ public class TaskController {
     public ResponseEntity<Task> reportMissingMaterials(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
         String materialIdStr = body.get("materialId");
         UUID materialId = materialIdStr != null && !materialIdStr.isEmpty() ? UUID.fromString(materialIdStr) : null;
-        Task updatedTask = taskExecutionService.reportMissingMaterials(taskId, materialId);
+        String workerIdStr = body.get("workerId");
+        UUID workerId = workerIdStr != null && !workerIdStr.isEmpty() ? UUID.fromString(workerIdStr) : null;
+        Task updatedTask = taskExecutionService.reportMissingMaterials(taskId, materialId, workerId);
         return ResponseEntity.ok(updatedTask);
     }
 
@@ -151,5 +153,13 @@ public class TaskController {
         long seconds = Long.parseLong(body.getOrDefault("seconds", "3600"));
         Task updatedTask = taskExecutionService.simulateTime(taskId, workerId, seconds);
         return ResponseEntity.ok(updatedTask);
+    }
+
+    @PostMapping("/{taskId}/assign")
+    public ResponseEntity<Task> assignTask(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
+        String workerIdStr = body.get("workerId");
+        UUID workerId = workerIdStr != null && !workerIdStr.isEmpty() ? UUID.fromString(workerIdStr) : null;
+        Task assignedTask = taskExecutionService.assignTask(taskId, workerId);
+        return ResponseEntity.ok(assignedTask);
     }
 }

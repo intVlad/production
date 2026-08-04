@@ -192,15 +192,22 @@ public class TaskExecutionService {
     }
 
     @Transactional
-    public Task reportMissingMaterials(UUID taskId, UUID materialId) {
+    public Task reportMissingMaterials(UUID taskId, UUID materialId, UUID workerId) {
         Task task = taskRepository.findById(taskId).orElseThrow(() -> new RuntimeException("Task not found"));
         task.setMissingMaterials(true);
+        String actionStr = "Брак матеріалів";
         if (materialId != null) {
-            materialRepository.findById(materialId).ifPresent(material -> {
-                task.getMissingMaterialsList().add(material);
-            });
+            Optional<Material> optMat = materialRepository.findById(materialId);
+            if (optMat.isPresent()) {
+                task.getMissingMaterialsList().add(optMat.get());
+                actionStr += ": " + optMat.get().getName();
+            }
         }
-        logHistoryEvent("Брак матеріалів", task, null);
+        Worker worker = null;
+        if (workerId != null) {
+            worker = workerRepository.findById(workerId).orElse(null);
+        }
+        logHistoryEvent(actionStr, task, worker);
         return taskRepository.save(task);
     }
 
@@ -272,5 +279,14 @@ public class TaskExecutionService {
         timeLogRepository.save(simulatedLog);
         
         return task;
+    }
+
+    @Transactional
+    public Task assignTask(UUID taskId, UUID workerId) {
+        Task task = taskRepository.findById(taskId).orElseThrow(() -> new RuntimeException("Task not found"));
+        Worker worker = workerId != null ? workerRepository.findById(workerId).orElse(null) : null;
+        task.setAssignedWorker(worker);
+        logHistoryEvent("Призначення працівника", task, worker);
+        return taskRepository.save(task);
     }
 }

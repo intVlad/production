@@ -35,13 +35,14 @@ public class DashboardService {
         List<ProductInstance> activeInstances = productInstanceRepository.findByStatusNot(InstanceStatus.COMPLETED);
         dashboard.put("activeProductsCount", activeInstances.size());
         
-        // Tasks currently being worked on
-        List<Task> activeTasks = taskRepository.findByStatus(TaskStatus.IN_PROGRESS);
+        // Tasks currently being worked on or pending
+        List<Task> activeTasks = taskRepository.findByStatusIn(List.of(TaskStatus.PENDING, TaskStatus.IN_PROGRESS, TaskStatus.PAUSED, TaskStatus.BLOCKED));
         dashboard.put("activeTasks", activeTasks.stream().map(task -> {
             Map<String, Object> taskInfo = new HashMap<>();
             taskInfo.put("taskId", task.getId());
             taskInfo.put("productSerialNumber", task.getProductInstance().getSerialNumber());
             taskInfo.put("stage", task.getStage().getName());
+            taskInfo.put("status", task.getStatus().toString());
             taskInfo.put("worker", task.getAssignedWorker() != null ? task.getAssignedWorker().getName() : "Unassigned");
             return taskInfo;
         }).collect(Collectors.toList()));
