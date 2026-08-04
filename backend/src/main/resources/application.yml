@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    # Use Postgres if env vars are present (e.g. Docker/GCP), otherwise default to H2 in-memory
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:production_mvp;DB_CLOSE_DELAY=-1}
+    driverClassName: ${SPRING_DATASOURCE_DRIVER:org.h2.Driver}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
+  h2:
+    console:
+      enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        # Default to H2 Dialect. Spring Boot auto-detects Postgres when url changes.
+        dialect: org.hibernate.dialect.H2Dialect
+
+server:
+  port: 8080
