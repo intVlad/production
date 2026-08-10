@@ -448,12 +448,22 @@ const app = {
     },
 
     async startProduction() {
+        const btn = document.getElementById('btn-start-production');
+        if (btn) {
+            btn.classList.add('loading');
+            btn.innerText = 'Запуск...';
+        }
+        
         const modelId = document.getElementById('new-prod-model').value;
         const serialNumber = document.getElementById('new-prod-sn').value.trim();
         const workerId = document.getElementById('new-prod-worker').value;
         
         if (!modelId || !serialNumber) {
             showToast('Будь ласка, оберіть модель і введіть серійний номер', 'warning');
+            if (btn) {
+                btn.classList.remove('loading');
+                btn.innerText = 'Запустити';
+            }
             return;
         }
         
@@ -494,6 +504,11 @@ const app = {
         } catch (err) {
             console.error(err);
             showToast('Помилка з\'єднання', 'error');
+        } finally {
+            if (btn) {
+                btn.classList.remove('loading');
+                btn.innerText = 'Запустити';
+            }
         }
     },
 
