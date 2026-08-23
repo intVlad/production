@@ -284,10 +284,12 @@ public class MaterialServiceTest {
         verify(materialRepository).save(material);
     }
 
+    // Below the reorder point is exactly what minimumStock exists to flag; this used to be
+    // driven by reservedQuantity instead and reported SUFFICIENT here.
     @Test
-    void testUpdateSupplyStatus_Insufficient() {
+    void testUpdateSupplyStatus_BelowMinimumStock_IsInsufficient() {
         material.setAvailableStock(10.0);
-        material.setReservedQuantity(20.0);
+        material.setMinimumStock(20.0);
         when(materialRepository.findById(materialId)).thenReturn(Optional.of(material));
 
         materialService.updateSupplyStatus(materialId);
@@ -299,6 +301,7 @@ public class MaterialServiceTest {
     @Test
     void testUpdateSupplyStatus_Sufficient() {
         material.setAvailableStock(50.0);
+        material.setMinimumStock(20.0);
         material.setReservedQuantity(20.0);
         when(materialRepository.findById(materialId)).thenReturn(Optional.of(material));
 
@@ -308,15 +311,24 @@ public class MaterialServiceTest {
         verify(materialRepository).save(material);
     }
 
+    // Stock committed to other tasks says nothing about whether this material needs reordering,
+    // so a healthy stock above its reorder point stays SUFFICIENT however much is reserved.
+    @Test
+    void testUpdateSupplyStatus_HighReservationAboveMinimum_StaysSufficient() {
+        material.setAvailableStock(50.0);
+        material.setMinimumStock(10.0);
+        material.setReservedQuantity(500.0);
+        when(materialRepository.findById(materialId)).thenReturn(Optional.of(material));
+
+        materialService.updateSupplyStatus(materialId);
+
+        assertEquals(SupplyStatus.SUFFICIENT, material.getSupplyStatus());
+    }
+
     @Test
     void testUpdateSupplyStatus_MaterialNotFound() {
         when(materialRepository.findById(materialId)).thenReturn(Optional.empty());
 
         assertThrows(EntityNotFoundException.class, () -> materialService.updateSupplyStatus(materialId));
-    }
-
-    @Test
-    void testCheckAvailability() {
-        assertTrue(materialService.checkAvailability(UUID.randomUUID(), 10));
     }
 }

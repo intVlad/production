@@ -47,6 +47,11 @@ public class MaterialController {
     public ResponseEntity<Material> updateStock(@PathVariable UUID id, @RequestBody com.example.productionmvp.dto.UpdateStockRequestDTO body) {
         Material material = materialRepository.findById(id).orElseThrow();
         Double availableStock = body.getAvailableStock();
+        // A missing or negative value would otherwise be stored as-is, leaving the warehouse
+        // holding a null or negative stock figure that every later calculation reads.
+        if (availableStock == null || availableStock < 0) {
+            throw new IllegalArgumentException("Залишок на складі має бути числом не менше 0.");
+        }
         material.setAvailableStock(availableStock);
         Material saved = materialRepository.save(material);
         materialService.updateSupplyStatus(saved.getId());

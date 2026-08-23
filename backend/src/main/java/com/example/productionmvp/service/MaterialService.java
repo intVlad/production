@@ -188,25 +188,27 @@ public class MaterialService {
         return result;
     }
 
+    // The badge shown against every material in "Склад та Матеріали". It used to compare stock
+    // against 0 and against reservedQuantity, and never looked at minimumStock at all - so a
+    // material sitting at 1 kg with a 20 kg reorder point was reported SUFFICIENT, which is the
+    // exact situation the reorder point exists to warn about. It also disagreed with
+    // GET /api/materials/deficits, which was already using minimumStock correctly; the two now
+    // answer the same question the same way.
     @Transactional
     public void updateSupplyStatus(UUID materialId) {
         Material material = materialRepository.findById(materialId)
                 .orElseThrow(() -> new EntityNotFoundException("Material not found"));
-                
-        if (material.getAvailableStock() == 0) {
+
+        double available = material.getAvailableStock() != null ? material.getAvailableStock() : 0.0;
+        double minimum = material.getMinimumStock() != null ? material.getMinimumStock() : 0.0;
+
+        if (available <= 0) {
             material.setSupplyStatus(SupplyStatus.CRITICAL_DEFICIT);
-        } else if (material.getAvailableStock() < material.getReservedQuantity()) {
-            // Adjust logic based on real meaning of SupplyStatus
+        } else if (available < minimum) {
             material.setSupplyStatus(SupplyStatus.INSUFFICIENT);
         } else {
             material.setSupplyStatus(SupplyStatus.SUFFICIENT);
         }
         materialRepository.save(material);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean checkAvailability(UUID operationId, int qty) {
-        // Typically, check if an operation's required materials are available
-        return true; 
     }
 }
