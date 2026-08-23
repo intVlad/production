@@ -80,10 +80,36 @@ public class GlobalExceptionHandler {
         org.springframework.http.converter.HttpMessageNotReadableException.class,
         org.springframework.web.bind.MethodArgumentNotValidException.class,
         org.springframework.web.bind.MissingServletRequestParameterException.class,
-        org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class
+        org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+        // A blank path segment (".../ /queue") arrives as a *missing* path variable rather than
+        // an unconvertible one, and an unparseable date in /defects/since/{date} blows up inside
+        // LocalDateTime.parse. Both are malformed requests, not server faults.
+        org.springframework.web.bind.MissingPathVariableException.class,
+        java.time.format.DateTimeParseException.class
     })
     public ResponseEntity<Map<String, Object>> handleBadRequest(Exception ex) {
         return buildErrorResponse(ex, HttpStatus.BAD_REQUEST);
+    }
+
+    // "The given id must not be null" — a request omitted an id the handler then passed
+    // straight into findById. That is the caller's omission, so it should read as one.
+    @ExceptionHandler(org.springframework.dao.InvalidDataAccessApiUsageException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidDataAccess(Exception ex) {
+        return buildErrorResponse(
+            new IllegalArgumentException("У запиті бракує обов'язкового ідентифікатора."),
+            HttpStatus.BAD_REQUEST);
+    }
+
+    // Oversized text and unique-key clashes surface here. The underlying message names columns
+    // and constraints, which is both unhelpful to the caller and more than they should see, so
+    // it is logged and replaced rather than passed through.
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(
+            org.springframework.dao.DataIntegrityViolationException ex) {
+        logger.warn("Rejected a request that violated a database constraint", ex);
+        return buildErrorResponse(
+            new IllegalArgumentException("Дані не відповідають обмеженням бази (задовге значення або дублікат)."),
+            HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)

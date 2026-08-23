@@ -65,16 +65,18 @@ public class DefectControllerTest {
 
     @Test
     public void testGetDefectStats() throws Exception {
-        Map<DefectResolution, Long> stats = new HashMap<>();
-        stats.put(DefectResolution.REWORK, 10L);
-        stats.put(DefectResolution.REPLACE, 5L);
+        Map<String, Long> stats = new HashMap<>();
+        stats.put(DefectResolution.REWORK.name(), 10L);
+        stats.put(DefectResolution.REPLACE.name(), 5L);
+        stats.put(com.example.productionmvp.service.DefectService.UNRESOLVED_KEY, 2L);
 
         when(defectService.getDefectStats()).thenReturn(stats);
 
         mockMvc.perform(get("/api/defects/stats"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.REWORK").value(10))
-                .andExpect(jsonPath("$.REPLACE").value(5));
+                .andExpect(jsonPath("$.REPLACE").value(5))
+                .andExpect(jsonPath("$.UNRESOLVED").value(2));
     }
 
     @Test

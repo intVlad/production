@@ -46,7 +46,7 @@ public class PalletController {
 
     @GetMapping(value = "/{id}/qr-image", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> generateQrCodeImage(@PathVariable UUID id) {
-        Pallet pallet = palletRepository.findById(id).orElseThrow();
+        Pallet pallet = palletRepository.findById(id).orElseThrow(() -> new com.example.productionmvp.exception.EntityNotFoundException("Піддон не знайдено"));
         byte[] image = palletService.generateQrCodeImage(pallet.getQrCode());
         return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(image);
     }

@@ -129,7 +129,9 @@ public class MaterialControllerTest {
 
         when(materialRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThrows(NoSuchElementException.class, () -> {
+        // A missing material is a 404, not the bare NoSuchElementException from an unguarded
+        // orElseThrow() that the global handler could only report as a 500.
+        assertThrows(com.example.productionmvp.exception.EntityNotFoundException.class, () -> {
             materialController.updateStock(id, body);
         });
 

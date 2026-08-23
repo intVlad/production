@@ -31,7 +31,7 @@ public class DefectController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<Map<com.example.productionmvp.model.DefectResolution, Long>> getDefectStats() {
+    public ResponseEntity<Map<String, Long>> getDefectStats() {
         return ResponseEntity.ok(defectService.getDefectStats());
     }
 

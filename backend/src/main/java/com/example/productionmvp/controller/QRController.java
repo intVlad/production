@@ -38,7 +38,7 @@ public class QRController {
 
     @GetMapping(value = "/pallet/{palletId}", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> generatePalletQr(@PathVariable UUID palletId) {
-        Pallet pallet = palletRepository.findById(palletId).orElseThrow();
+        Pallet pallet = palletRepository.findById(palletId).orElseThrow(() -> new com.example.productionmvp.exception.EntityNotFoundException("Піддон не знайдено"));
         byte[] image = palletService.generateQrCodeImage(pallet.getQrCode());
         return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(image);
     }
@@ -57,7 +57,7 @@ public class QRController {
     @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
     @GetMapping(value = "/worker/{workerId}", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> generateWorkerQrBadge(@PathVariable UUID workerId) {
-        Worker worker = workerRepository.findById(workerId).orElseThrow();
+        Worker worker = workerRepository.findById(workerId).orElseThrow(() -> new com.example.productionmvp.exception.EntityNotFoundException("Працівника не знайдено"));
         String badge = worker.getQrBadgeCode() != null ? worker.getQrBadgeCode() : workerId.toString();
         byte[] image = palletService.generateQrCodeImage(badge);
         return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(image);

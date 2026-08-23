@@ -62,7 +62,7 @@ public class PostController {
         if (body.getMaxCapacity() != null) post.setMaxCapacity(body.getMaxCapacity());
         
         if (body.getSectionId() != null) {
-            Section section = sectionRepository.findById(body.getSectionId()).orElseThrow();
+            Section section = sectionRepository.findById(body.getSectionId()).orElseThrow(() -> new com.example.productionmvp.exception.EntityNotFoundException("Дільницю не знайдено"));
             post.setSection(section);
         }
         

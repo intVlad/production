@@ -45,7 +45,7 @@ public class MaterialController {
     @PostMapping("/{id}/update-stock")
     @PreAuthorize("hasRole('MANAGER') or hasRole('SUPPLIER') or hasRole('ADMIN')")
     public ResponseEntity<Material> updateStock(@PathVariable UUID id, @RequestBody com.example.productionmvp.dto.UpdateStockRequestDTO body) {
-        Material material = materialRepository.findById(id).orElseThrow();
+        Material material = materialRepository.findById(id).orElseThrow(() -> new com.example.productionmvp.exception.EntityNotFoundException("Матеріал не знайдено"));
         Double availableStock = body.getAvailableStock();
         // A missing or negative value would otherwise be stored as-is, leaving the warehouse
         // holding a null or negative stock figure that every later calculation reads.

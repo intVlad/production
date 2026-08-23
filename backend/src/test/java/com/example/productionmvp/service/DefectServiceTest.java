@@ -323,20 +323,34 @@ class DefectServiceTest {
         DefectRecord replaceDefect = new DefectRecord();
         replaceDefect.setResolution(DefectResolution.REPLACE);
         
-        DefectRecord scrapDefect = new DefectRecord();
-        // Assuming there is a SCRAP resolution, if not, we use another or just those two.
-        scrapDefect.setResolution(null); // Or something else, let's just use what we have in the enum.
-        
-        // Wait, SCRAP might not exist, but let's assume there is some other resolution, or we just test REWORK and REPLACE.
-        // Actually, let's just test with REWORK and REPLACE.
         when(defectRecordRepository.findAll()).thenReturn(List.of(reworkDefect1, reworkDefect2, replaceDefect));
 
         // Act
-        Map<DefectResolution, Long> stats = defectService.getDefectStats();
+        Map<String, Long> stats = defectService.getDefectStats();
 
         // Assert
         assertEquals(2, stats.size());
-        assertEquals(2L, stats.get(DefectResolution.REWORK));
-        assertEquals(1L, stats.get(DefectResolution.REPLACE));
+        assertEquals(2L, stats.get(DefectResolution.REWORK.name()));
+        assertEquals(1L, stats.get(DefectResolution.REPLACE.name()));
+    }
+
+    // A defect can be recorded before anyone decides what to do with the part, and grouping by
+    // a null resolution used to throw - one such row took the whole statistics endpoint down
+    // for everyone until it was edited.
+    @Test
+    void getDefectStats_CountsUnresolvedInsteadOfThrowing() {
+        DefectRecord resolved = new DefectRecord();
+        resolved.setResolution(DefectResolution.REWORK);
+        DefectRecord undecided = new DefectRecord();
+        undecided.setResolution(null);
+
+        when(defectRecordRepository.findAll()).thenReturn(List.of(resolved, undecided));
+
+        Map<String, Long> stats = defectService.getDefectStats();
+
+        assertEquals(1L, stats.get(DefectResolution.REWORK.name()));
+        assertEquals(1L, stats.get(DefectService.UNRESOLVED_KEY));
+        // Every record is accounted for, so the figures still add up to what exists.
+        assertEquals(2L, stats.values().stream().mapToLong(Long::longValue).sum());
     }
 }

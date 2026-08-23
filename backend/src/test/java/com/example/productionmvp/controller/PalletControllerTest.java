@@ -131,7 +131,7 @@ public class PalletControllerTest {
         Mockito.when(palletRepository.findById(palletId)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/pallets/{id}/qr-image", palletId))
-                .andExpect(status().is(500));
+                .andExpect(status().isNotFound());
     }
 
     @Test

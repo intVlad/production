@@ -170,8 +170,21 @@ public class DefectService {
                 .toList();
     }
 
-    public Map<DefectResolution, Long> getDefectStats() {
-        return defectRecordRepository.findAll().stream()
-                .collect(Collectors.groupingBy(DefectRecord::getResolution, Collectors.counting()));
+    // Resolution is nullable (a defect can be recorded before anyone decides what to do with
+    // the part), and Collectors.groupingBy refuses a null key - so a single unresolved record
+    // made this throw and took down defect statistics entirely for everyone, permanently,
+    // until that row was edited. Unresolved defects are a real category, so they get counted
+    // as one instead of being allowed to break the report.
+    public static final String UNRESOLVED_KEY = "UNRESOLVED";
+
+    public Map<String, Long> getDefectStats() {
+        Map<String, Long> stats = new java.util.LinkedHashMap<>();
+        for (DefectRecord record : defectRecordRepository.findAll()) {
+            DefectResolution resolution = record.getResolution();
+            // Counted under its own key rather than dropped, so the totals still add up to the
+            // number of defect records that exist.
+            stats.merge(resolution != null ? resolution.name() : UNRESOLVED_KEY, 1L, Long::sum);
+        }
+        return stats;
     }
 }

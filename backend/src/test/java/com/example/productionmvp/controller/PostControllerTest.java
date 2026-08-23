@@ -188,7 +188,7 @@ class PostControllerTest {
         mockMvc.perform(post("/api/posts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().is(500));
+                .andExpect(status().isNotFound());
     }
 
     @Test

@@ -67,7 +67,7 @@ public class AssemblyController {
     @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
     public ResponseEntity<Assembly> createAssembly(@RequestBody com.example.productionmvp.dto.AssemblyRequestDTO body) {
         UUID productModelId = body.getProductModelId();
-        ProductModel model = productModelRepository.findById(productModelId).orElseThrow();
+        ProductModel model = productModelRepository.findById(productModelId).orElseThrow(() -> new com.example.productionmvp.exception.EntityNotFoundException("Модель виробу не знайдено"));
         
         Assembly assembly = new Assembly();
         assembly.setProductModel(model);
@@ -89,7 +89,7 @@ public class AssemblyController {
     @PostMapping("/{id}/operations")
     @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
     public ResponseEntity<Operation> addOperationToAssembly(@PathVariable UUID id, @RequestBody com.example.productionmvp.dto.OperationRequestDTO body) {
-        Assembly assembly = assemblyRepository.findById(id).orElseThrow();
+        Assembly assembly = assemblyRepository.findById(id).orElseThrow(() -> new com.example.productionmvp.exception.EntityNotFoundException("Вузол не знайдено"));
         Operation op = new Operation();
         op.setAssembly(assembly);
         if (body.getName() != null) op.setName(body.getName());
