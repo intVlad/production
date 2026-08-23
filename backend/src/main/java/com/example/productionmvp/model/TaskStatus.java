@@ -1,9 +1,15 @@
 package com.example.productionmvp.model;
 
 public enum TaskStatus {
-    PENDING,
+    CREATED,
+    ASSIGNED,
+    READY,
     IN_PROGRESS,
     PAUSED,
     COMPLETED,
-    BLOCKED
+    BLOCKED,
+    CANCELLED,
+    REWORK_NEEDED,
+    IN_OUTSOURCE,
+    DAMAGED
 }

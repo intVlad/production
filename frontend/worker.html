@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProdFlow MES v2 — Робоче місце працівника</title>
+    <meta name="description" content="Система управління виробництвом та забезпеченням">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="background">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <!-- App Layout Container -->
+    <div class="app-layout" style="grid-template-columns: 1fr;">
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header">
+                <div class="header-left">
+                    <div class="breadcrumb" id="current-view-title">Панель Працівника</div>
+                </div>
+                <div class="header-right">
+                    <div class="user-info">
+                        <span id="mobile-current-worker">Працівник</span>
+                        <span id="mobile-current-section" style="margin-left: 5px; font-size: 0.8rem; color: #888;"></span>
+                        <button class="btn btn-outline btn-sm" id="btn-worker-logout">Вихід</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- View Sections Container -->
+            <div class="views-container">
+                <section class="view-section active mobile-optimized" id="view-worker-mobile">
+                    
+                    <!-- Main Worker Interface -->
+                    <article id="worker-main-interface" class="glass-card mb-4" style="text-align: center;">
+                        <h2 class="mb-4">Сканування Поста / Піддону</h2>
+                        <div class="mobile-actions grid-2-cols gap-2 mb-2">
+                            <button class="btn btn-primary large-btn" id="btn-scan-post">Скан Посту</button>
+                            <button class="btn btn-accent large-btn" id="btn-scan-pallet">Скан Піддону</button>
+                        </div>
+                        <div class="manual-entry flex-row gap-2 mb-4">
+                            <input type="text" id="manual-code-input" class="form-control flex-1" placeholder="Введіть код вручну...">
+                            <button class="btn btn-outline" id="btn-manual-submit">Підтвердити</button>
+                        </div>
+
+                        <div id="qr-reader-container" class="glass-card mb-4 hidden">
+                            <div id="qr-reader" style="width: 100%; max-width: 400px; margin: 0 auto;"></div>
+                            <button class="btn btn-outline w-100 mt-2" onclick="stopScanner()">Скасувати</button>
+                        </div>
+
+                        <!-- Pallet Info Card (Hidden until scanned) -->
+                        <div id="mobile-pallet-card" class="glass-card mb-4 hidden" style="text-align: left;">
+                            <header class="pallet-header flex-row justify-between mb-2">
+                                <h3><span id="mobile-card-label">Піддон</span>: <span id="mobile-pallet-id" class="text-accent"></span></h3>
+                                <div id="mobile-pallet-qr" class="mini-qr"></div>
+                            </header>
+                            <div class="pallet-details mb-4">
+                                <p><strong id="mobile-field-label-1">Виріб:</strong> <span id="mobile-pallet-product"></span></p>
+                                <p><strong id="mobile-field-label-2">Категорія:</strong> <span id="mobile-pallet-category"></span></p>
+                                <p><strong>Нормо-час:</strong> <span id="mobile-pallet-time"></span> хв</p>
+                                <p id="mobile-pallet-requirements-row" class="hidden"><strong>Потрібно:</strong> <span id="mobile-pallet-requirements"></span></p>
+
+                                <h4 class="mt-2" id="mobile-prev-stages-label">Попередні етапи:</h4>
+                                <div id="mobile-pallet-prev-stages" class="badges-container"></div>
+
+                                <div id="mobile-assemblies-block">
+                                    <h4 class="mt-2">Вузли на піддоні:</h4>
+                                    <ul id="mobile-pallet-assemblies" class="styled-list"></ul>
+                                </div>
+
+                                <h4 class="mt-2 text-warning">Необхідні матеріали:</h4>
+                                <ul id="mobile-pallet-materials" class="styled-list"></ul>
+                            </div>
+
+                            <div class="timer-display text-center mb-4 hidden" id="mobile-op-timer" style="font-size: 2.5rem; font-weight: bold; color: var(--primary);">
+                                00:00:00
+                            </div>
+
+                            <div class="mobile-action-buttons">
+                                <button class="btn btn-success large-btn w-100 mb-2" id="btn-start-op">Почати</button>
+                                <div class="grid-2-cols gap-2 mb-2 hidden" id="mobile-active-controls">
+                                    <button class="btn btn-warning large-btn" id="btn-pause-op">Пауза</button>
+                                    <button class="btn btn-info large-btn hidden" id="btn-resume-op">Продовжити</button>
+                                    <button class="btn btn-success large-btn" id="btn-complete-op">Завершити</button>
+                                </div>
+                                <button class="btn btn-danger large-btn w-100" id="btn-damage-op">Ушкоджено (Брак)</button>
+                            </div>
+                        </div>
+
+                        <!-- Available Tasks List -->
+                        <div class="glass-card mt-4" style="text-align: left;">
+                            <h3>Доступні завдання</h3>
+                            <div id="mobile-tasks-list" class="task-list mt-2">
+                                <p class="text-muted text-center py-4">Немає доступних завдань</p>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="toast-container"></div>
+    
+    <!-- Defect Modal -->
+    <div id="defect-modal" class="modal hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; display: none;">
+        <div class="modal-content glass-card" style="width: 90%; max-width: 400px; padding: 2rem; position: relative;">
+            <span class="close-btn" id="btn-defect-close" style="position: absolute; top: 10px; right: 15px; font-size: 1.5rem; cursor: pointer;">&times;</span>
+            <h2 class="mb-4 text-danger">Зафіксувати брак</h2>
+            <div class="form-group mb-4">
+                <label for="defect-reason-input">Причина браку</label>
+                <input type="text" id="defect-reason-input" class="form-control w-100" placeholder="Вкажіть причину">
+            </div>
+            <div class="form-group mb-4">
+                <label for="defect-resolution-select">Що робимо з вузлом</label>
+                <select id="defect-resolution-select" class="form-control w-100">
+                    <option value="REWORK">Можна відремонтувати</option>
+                    <option value="REPLACE">Списати, замінити деталь</option>
+                    <option value="WRITE_OFF">Списати вузол цілком</option>
+                </select>
+            </div>
+            <button class="btn btn-danger large-btn w-100" id="btn-submit-defect">Підтвердити</button>
+        </div>
+    </div>
+
+    <!-- Distribution Modal (ТЗ §5.2: batch task doesn't close until distribution is done) -->
+    <div class="modal-overlay hidden" id="modal-distribution" style="z-index: 10000; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;">
+      <div class="modal-content glass-card" style="width: 90%; max-width: 400px; padding: 2rem; position: relative;">
+        <h3>Розподіл Партії</h3>
+        <p id="dist-batch-info"></p>
+        <div class="standard-form">
+          <div class="form-group">
+            <label for="dist-pallet">Піддон</label>
+            <select id="dist-pallet"></select>
+          </div>
+          <div class="form-group">
+            <label for="dist-qty">Кількість</label>
+            <input type="number" id="dist-qty" min="1" required>
+          </div>
+          <div class="flex-row gap-4 mt-4">
+            <button class="btn btn-primary" id="btn-dist-submit">Розподілити</button>
+            <button class="btn btn-outline" id="btn-dist-close">Закрити</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="js/worker.js"></script>
+</body>
+</html>

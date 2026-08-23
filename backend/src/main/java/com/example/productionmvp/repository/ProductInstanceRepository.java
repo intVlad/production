@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface ProductInstanceRepository extends JpaRepository<ProductInstance, UUID> {
     List<ProductInstance> findByStatusNot(com.example.productionmvp.model.InstanceStatus status);
+    List<ProductInstance> findBySeriesId(UUID seriesId);
+    long countByStatus(com.example.productionmvp.model.InstanceStatus status);
 }

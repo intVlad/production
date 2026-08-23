@@ -3,278 +3,373 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Production MVP</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <title>Вхід - ProdFlow MES</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=2">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: var(--bg-color, #0b0f19);
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-primary);
+        }
+        .login-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            padding: 2.5rem;
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+        .login-card h1 {
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+        }
+        .role-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .role-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .role-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            border-color: var(--primary);
+        }
+        .role-card.tv-role {
+            border-color: rgba(255, 255, 255, 0.05);
+            opacity: 0.8;
+        }
+        .role-card.tv-role:hover {
+            border-color: var(--accent);
+            opacity: 1;
+        }
+        .pin-section {
+            display: none;
+            margin-top: 20px;
+            animation: fadeIn 0.3s forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-gray);
+        }
+        .form-group input {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-family: inherit;
+            font-size: 1.5rem;
+            text-align: center;
+            letter-spacing: 5px;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+        .btn.back-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            border: 1px solid var(--glass-border);
+            margin-top: 10px;
+        }
+        .btn.back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+    </style>
 </head>
 <body>
     <div class="background">
         <div class="blob blob-1"></div>
         <div class="blob blob-2"></div>
     </div>
-
-    <nav class="glass-nav">
-        <div class="nav-content">
-            <h1 class="logo">ProdFlow</h1>
-            <div class="nav-links">
-                <span id="live-indicator" style="display: flex; align-items: center; gap: 0.5rem; color: #10b981; font-size: 0.9em; font-weight: 600; margin-right: 1rem;">
-                    <span id="live-dot" class="live-dot" style="display: inline-block; width: 8px; height: 8px; background-color: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></span><span id="live-text">Live</span>
-                </span>
-                <button onclick="app.switchView('worker')" class="nav-btn active" id="nav-worker">Працівник</button>
-                <button onclick="app.switchView('dashboard')" class="nav-btn" id="nav-dashboard">Менеджер</button>
+    
+    <div class="login-card">
+        <h1 id="main-title">Оберіть вашу роль</h1>
+        
+        <div class="role-grid" id="role-selection">
+            <div class="role-card" onclick="selectRole('MANAGER')">
+                <i class="ph ph-briefcase"></i> Менеджер / Адміністратор
+            </div>
+            <div class="role-card" onclick="selectRole('WORKER')">
+                <i class="ph ph-wrench"></i> Працівник
+            </div>
+            <div class="role-card tv-role" onclick="selectRole('TV')">
+                <i class="ph ph-monitor"></i> ТВ-Дашборд
             </div>
         </div>
-    </nav>
 
-    <main class="container">
-        <!-- Worker View -->
-        <section id="worker-view" class="view-section active">
-            <div class="glass-card">
-                <h2>Інтерфейс працівника</h2>
-                
-                <div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;">
-                    <label style="color: var(--text-muted); font-size: 0.9em;">Працівник:</label>
-                    <select id="worker-select" style="flex: 1; padding: 0.5rem; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); outline: none;">
-                        <option value="123e4567-e89b-12d3-a456-426614174000">John Doe (Technician)</option>
-                        <option value="22222222-2222-2222-2222-222222222222">Jane Smith (Engineer)</option>
+        <div class="pin-section" id="pin-section">
+            <form id="login-form">
+                <p style="color: var(--text-gray); margin-bottom: 20px;" id="pin-subtitle">Введіть ваш PIN код для входу</p>
+                <div class="form-group hidden" id="worker-select-group" style="margin-bottom: 15px; text-align: center;">
+                    <button type="button" id="start-scan-btn" class="btn" style="margin-bottom: 15px; background: var(--secondary);"><i class="ph ph-qr-code"></i> Сканувати бейдж</button>
+                    <div id="qr-reader" style="width: 100%; margin-bottom: 15px; display: none; border-radius: 12px; overflow: hidden;"></div>
+                    <p style="color: var(--text-gray); margin-bottom: 10px;">Або оберіть зі списку:</p>
+                    <select id="worker-select" class="form-control" style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: var(--text-primary); border: 1px solid var(--glass-border);">
+                        <option value="">Оберіть працівника...</option>
                     </select>
                 </div>
-
-                <p class="subtitle">Відскануйте або введіть ID завдання</p>
-                
-                <div class="input-group">
-                    <input type="text" id="task-input" placeholder="напр. 550e8400-e29b-41d4-a716-446655440000">
-                    <button class="btn btn-primary" onclick="app.loadTask()">Завантажити</button>
-                    <button class="btn" style="background:var(--accent-color); color:white; padding:0.8rem; border-radius:12px;" aria-label="Scan QR Code" title="Scan QR Code" onclick="app.startScanner()">📷</button>
+                <div class="form-group">
+                    <input type="password" inputmode="numeric" id="pin" required placeholder="PIN код (••••)" maxlength="4" pattern="\d{4}">
                 </div>
-
-                <div id="worker-tasks-list" style="margin-top: 1rem; border-top: 1px solid var(--glass-border); padding-top: 1rem;">
-                    <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Мої завдання</h3>
-                    <div id="worker-tasks-container" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;">
-                        <p style="color: var(--text-muted); font-size: 0.9em;">Немає активних завдань</p>
-                    </div>
-                </div>
-                <div id="qr-reader" style="width:100%; display:none; margin-top: 1rem; border-radius: 12px; overflow: hidden;"></div>
-
-                <div id="task-details" class="hidden slide-up">
-                    <div class="task-info">
-                        <h3>Деталі завдання</h3>
-                        <p><strong>Виріб:</strong> <span id="td-product">...</span></p>
-                        <p><strong>Етап:</strong> <span id="td-stage">...</span></p>
-                        <p><strong>Статус:</strong> <span id="td-status" class="status-badge">...</span></p>
-                    </div>
-                    
-                    <div class="action-buttons">
-                        <button class="btn btn-success" id="btn-start" onclick="app.startTask()">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                            Почати
-                        </button>
-                        <button class="btn btn-warning" id="btn-pause" onclick="app.pauseTask()">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-                            Пауза
-                        </button>
-                        <button class="btn btn-primary" id="btn-complete" onclick="app.completeTask()">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                            Завершити
-                        </button>
-                    </div>
-
-                    <!-- Additional Problem Buttons -->
-                    <div class="problem-buttons">
-                        <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 0.5rem;">Дії та Проблеми:</p>
-                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-                            <div class="material-group" style="display: flex; gap: 0.5rem; align-items: center; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid var(--glass-border);">
-                                <select id="material-select" style="padding: 0.5rem; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); outline: none;" onchange="document.getElementById('btn-missing').disabled = !this.value">
-                                    <option value="">Оберіть матеріал...</option>
-                                    <option value="33333333-3333-3333-3333-333333333331">Plastic Frame</option>
-                                    <option value="33333333-3333-3333-3333-333333333332">Metal Screws</option>
-                                    <option value="33333333-3333-3333-3333-333333333333">Display Panel</option>
-                                </select>
-                                <button class="btn btn-outline" style="font-size: 0.85rem; padding: 0.5rem 1rem;" id="btn-missing" onclick="app.reportMissingMaterials()" disabled>Брак матеріалів</button>
-                            </div>
-                            <button class="btn btn-outline" style="font-size: 0.85rem; padding: 0.5rem 1rem; display: none;" id="btn-resolve-materials" onclick="app.resolveMissingMaterials()">Матеріали додано</button>
-                            <button class="btn btn-outline" style="font-size: 0.85rem; padding: 0.5rem 1rem; color: #fca5a5; border-color: rgba(239, 68, 68, 0.5);" id="btn-block" onclick="app.blockTask()">Заблокувати</button>
-                            <button class="btn btn-outline" style="font-size: 0.85rem; padding: 0.5rem 1rem; display: none;" id="btn-unblock" onclick="app.unblockTask()">Розблокувати</button>
-                            <button class="btn btn-outline" style="font-size: 0.85rem; padding: 0.5rem 1rem;" id="btn-rework" onclick="app.reworkTask()">Повторити (Rework)</button>
-                            <button class="btn btn-outline" style="font-size: 0.85rem; padding: 0.5rem 1rem; margin-left: auto;" id="btn-simulate" onclick="app.simulateTime()">+ 1 Година</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Manager Dashboard View -->
-        <section id="dashboard-view" class="view-section">
-            <div class="dashboard-grid">
-                
-                <div class="glass-card stat-card">
-                    <h3>Активні вироби</h3>
-                    <div class="stat-value" id="stat-active-products">0</div>
-                </div>
-                
-                <div class="glass-card stat-card">
-                    <h3>Всього годин</h3>
-                    <div class="stat-value" id="stat-total-hours">0.0</div>
-                </div>
-
-                <div class="glass-card stat-card">
-                    <h3>Вузьке місце</h3>
-                    <div class="stat-value" id="stat-bottleneck" style="font-size: 1.5rem; color: #fcd34d;">Немає</div>
-                </div>
-
-                <div class="glass-card alert-card full-width" style="display: flex; flex-direction: column;">
-                    <h3>Проблеми</h3>
-                    <ul class="issue-list" style="display: flex; gap: 2rem; align-items: flex-start; flex-wrap: wrap;">
-                        <li style="display: flex; flex-direction: column; background: rgba(239, 68, 68, 0.1); border-radius: 8px; overflow: hidden;" onclick="app.loadProblemTasks('blocked')">
-                            <div style="cursor: pointer; padding: 0.5rem; display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
-                                <span>Заблоковані завдання: <span id="issue-blocked" class="badge badge-danger">0</span></span>
-                            </div>
-                        </li>
-                        <li style="display: flex; flex-direction: column; background: rgba(245, 158, 11, 0.1); border-radius: 8px; overflow: hidden;">
-                            <div style="cursor: pointer; padding: 0.5rem; display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;" onclick="app.toggleMissingMaterials()">
-                                <span>Брак матеріалів: <span id="issue-materials" class="badge badge-warning">0</span></span>
-                                <span id="issue-materials-chevron" style="transition: transform 0.3s ease; font-size: 0.8em;">▼</span>
-                            </div>
-                            <ul id="issue-materials-details" class="accordion-content"></ul>
-                        </li>
-                        <li style="display: flex; flex-direction: column; background: rgba(245, 158, 11, 0.1); border-radius: 8px; overflow: hidden;" onclick="app.loadProblemTasks('overdue')">
-                            <div style="cursor: pointer; padding: 0.5rem; display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
-                                <span>Прострочені завдання: <span id="issue-overdue" class="badge badge-danger">0</span></span>
-                            </div>
-                        </li>
-                    </ul>
-                    
-                    <div class="table-responsive" style="margin-top: 1rem;">
-                        <table class="glass-table" id="problem-tasks-table" style="display: none;">
-                            <thead>
-                                <tr>
-                                    <th>Виріб (SN)</th>
-                                    <th>Етап</th>
-                                    <th>Статус</th>
-                                </tr>
-                            </thead>
-                            <tbody id="problem-tasks-body">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="glass-card full-width">
-                    <h3>Недавня історія</h3>
-                    <div class="table-responsive history-table-container">
-                        <table class="glass-table">
-                            <thead>
-                                <tr>
-                                    <th>Час</th>
-                                    <th>Дія</th>
-                                    <th>Виріб (SN)</th>
-                                    <th>Етап</th>
-                                    <th>Працівник</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recent-history-body">
-                                <tr>
-                                    <td colspan="5" style="text-align: center">Історія порожня</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="glass-card full-width">
-                    <h3>Керування виробами (Активні завдання)</h3>
-                    <div class="table-responsive">
-                        <table class="glass-table">
-                            <thead>
-                                <tr>
-                                    <th>Виріб (SN)</th>
-                                    <th>Етап</th>
-                                    <th>Статус</th>
-                                    <th>Поточний працівник</th>
-                                    <th>Призначити працівника</th>
-                                </tr>
-                            </thead>
-                            <tbody id="active-tasks-body">
-                                <tr>
-                                    <td colspan="5" style="text-align: center">Немає активних завдань</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- NEW MANAGER FEATURES -->
-                <div class="glass-card features-grid" style="grid-column: 1 / -1;">
-                    <div>
-                        <h3>Новий працівник</h3>
-                        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
-                            <label for="new-worker-name" style="color: var(--text-muted); font-size: 0.9em;">Ім'я працівника</label>
-                            <input type="text" id="new-worker-name" placeholder="напр. Іван Франко" style="padding: 0.5rem; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); outline: none;">
-                            
-                            <label for="new-worker-role" style="color: var(--text-muted); font-size: 0.9em; margin-top: 0.5rem;">Посада</label>
-                            <input type="text" id="new-worker-role" placeholder="напр. Монтажник" style="padding: 0.5rem; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); outline: none;">
-                            
-                            <button class="btn btn-success" style="margin-top: 1rem;" onclick="app.registerWorker()">Зареєструвати</button>
-                        </div>
-                    </div>
-                    <div>
-                        <h3>Запуск у виробництво</h3>
-                        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
-                            <label for="new-prod-model" style="color: var(--text-muted); font-size: 0.9em;">Модель виробу</label>
-                            <select id="new-prod-model" style="padding: 0.5rem; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); outline: none;">
-                                <!-- Loaded dynamically -->
-                            </select>
-                            
-                            <label for="new-prod-sn" style="color: var(--text-muted); font-size: 0.9em; margin-top: 0.5rem;">Серійний номер</label>
-                            <input type="text" id="new-prod-sn" placeholder="напр. SN-100" style="padding: 0.5rem; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); outline: none;">
-                            
-                            <label for="new-prod-worker" style="color: var(--text-muted); font-size: 0.9em; margin-top: 0.5rem;">Призначити працівника (Етап 1)</label>
-                            <select id="new-prod-worker" style="padding: 0.5rem; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); outline: none;">
-                                <!-- Loaded dynamically -->
-                            </select>
-                            
-                            <button class="btn btn-primary" id="btn-start-production" style="margin-top: 1rem;" onclick="app.startProduction()">Запустити</button>
-                        </div>
-                    </div>
-                    <div>
-                        <h3>Нова модель виробу</h3>
-                        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
-                            <label for="new-model-name" style="color: var(--text-muted); font-size: 0.9em;">Назва моделі</label>
-                            <input type="text" id="new-model-name" placeholder="напр. Model X" style="padding: 0.5rem; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); outline: none;">
-                            
-                            <label for="new-model-desc" style="color: var(--text-muted); font-size: 0.9em; margin-top: 0.5rem;">Опис</label>
-                            <input type="text" id="new-model-desc" placeholder="напр. Базова версія" style="padding: 0.5rem; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid var(--glass-border); outline: none;">
-                            
-                            <button class="btn btn-success" id="btn-create-model" style="margin-top: 1rem;" onclick="app.createProductModel()">Створити модель</button>
-                        </div>
-                    </div>
-                </div>
-
-
-
-            </div>
-            <button class="btn btn-primary refresh-btn" onclick="app.loadDashboard()" style="display: none;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                Оновити дані
-            </button>
-        </section>
-    </main>
-
-    <!-- Modals -->
-    <div id="qr-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);" onclick="if(event.target === this) { this.style.display='none'; document.getElementById('qr-modal-code').innerHTML=''; }">
-        <div class="modal-content glass-card" style="padding: 2rem; text-align: center; max-width: 300px; width: 90%; margin: auto; position: relative; top: 50%; transform: translateY(-50%);">
-            <h3 style="margin-bottom: 1rem;">QR Код виробу</h3>
-            <p id="qr-modal-sn" style="margin-bottom: 1rem; color: var(--accent-color); font-weight: bold;"></p>
-            <div id="qr-modal-code" style="background: white; padding: 10px; border-radius: 8px; display: inline-block; margin-bottom: 1.5rem;"></div>
-            <br>
-            <button class="btn btn-outline" onclick="document.getElementById('qr-modal').style.display='none'; document.getElementById('qr-modal-code').innerHTML=''">Закрити</button>
+                <button type="submit" class="btn" id="login-btn">Увійти</button>
+                <button type="button" class="btn back-btn" onclick="backToRoles()">Назад</button>
+            </form>
         </div>
+        
+        <div id="toast-container"></div>
     </div>
 
-    <div id="toast-container" class="toast-container"></div>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="js/api.js"></script>
+    <script>
+        let selectedRole = null;
+        let html5QrcodeScanner = null;
 
-    <script src="app.js"></script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('token');
+            const userStr = localStorage.getItem('user');
+            if (token && userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    const role = user.systemRole || 'WORKER';
+                    if (['MANAGER', 'ADMIN', 'DISPATCHER'].includes(role)) {
+                        window.location.href = 'manager.html';
+                    } else {
+                        window.location.href = 'worker.html';
+                    }
+                } catch(e) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                }
+            }
+        });
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.style.cssText = 'padding: 1rem; margin-top: 1rem; border-radius: 8px; color: white; opacity: 0.9; font-weight: 500; font-size: 0.9rem;';
+            toast.style.backgroundColor = type === 'error' ? '#ef4444' : '#3b82f6';
+            toast.innerText = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function selectRole(role) {
+            selectedRole = role;
+            document.getElementById('role-selection').style.display = 'none';
+            document.getElementById('pin-section').style.display = 'block';
+            
+            const title = document.getElementById('main-title');
+            const workerSelectGroup = document.getElementById('worker-select-group');
+            const workerSelect = document.getElementById('worker-select');
+            
+            if (role === 'MANAGER') {
+                title.innerText = 'Вхід для Менеджера';
+                workerSelectGroup.classList.add('hidden');
+                workerSelect.removeAttribute('required');
+            }
+            else if (role === 'WORKER') {
+                title.innerText = 'Вхід для Працівника';
+                workerSelectGroup.classList.remove('hidden');
+                workerSelect.setAttribute('required', 'true');
+                loadWorkersForLogin();
+            }
+            else if (role === 'TV') {
+                title.innerText = 'Запуск ТВ-Дашборду';
+                workerSelectGroup.classList.add('hidden');
+                workerSelect.removeAttribute('required');
+            }
+            
+            document.getElementById('pin').focus();
+        }
+
+        async function loadWorkersForLogin() {
+            try {
+                const res = await fetch(API_BASE + '/auth/workers');
+                if (!res.ok) throw new Error('Failed to fetch workers');
+                const workers = await res.json();
+                
+                const select = document.getElementById('worker-select');
+                select.innerHTML = '<option value="">Оберіть своє ім\'я...</option>';
+                workers.forEach(w => {
+                    const opt = document.createElement('option');
+                    opt.value = w.id;
+                    opt.innerText = w.name;
+                    select.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('Error loading workers:', err);
+                showToast('Не вдалося завантажити список працівників', 'warning');
+            }
+        }
+
+        function backToRoles() {
+            selectedRole = null;
+            document.getElementById('role-selection').style.display = 'grid';
+            document.getElementById('pin-section').style.display = 'none';
+            document.getElementById('main-title').innerText = 'Оберіть вашу роль';
+            document.getElementById('login-form').reset();
+            stopScanner();
+        }
+
+        function stopScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear().catch(err => console.error("Failed to clear scanner", err));
+                html5QrcodeScanner = null;
+                document.getElementById('qr-reader').style.display = 'none';
+                document.getElementById('start-scan-btn').style.display = 'block';
+            }
+        }
+
+        document.getElementById('start-scan-btn').addEventListener('click', () => {
+            const qrReader = document.getElementById('qr-reader');
+            qrReader.style.display = 'block';
+            document.getElementById('start-scan-btn').style.display = 'none';
+            
+            html5QrcodeScanner = new Html5Qrcode("qr-reader");
+            html5QrcodeScanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    // Assuming decodedText is the worker ID
+                    const select = document.getElementById('worker-select');
+                    const optionExists = Array.from(select.options).some(opt => opt.value === decodedText);
+                    
+                    if(optionExists) {
+                        select.value = decodedText;
+                        showToast("Бейдж розпізнано успішно!", "success");
+                        stopScanner();
+                    } else {
+                        showToast("Працівника не знайдено!", "error");
+                    }
+                },
+                (errorMessage) => {
+                    // Ignore scan errors, they happen continuously until a QR is found
+                }
+            ).catch((err) => {
+                showToast("Помилка доступу до камери", "error");
+                stopScanner();
+            });
+        });
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pin = document.getElementById('pin').value;
+            const workerId = document.getElementById('worker-select').value;
+            const btn = document.getElementById('login-btn');
+            
+            try {
+                btn.innerText = 'Завантаження...';
+                btn.disabled = true;
+                
+                const payload = { pin };
+                if (selectedRole === 'WORKER' && workerId) {
+                    payload.workerId = workerId;
+                }
+                
+                const res = await apiPost('/auth/login/pin', payload);
+                const role = res.worker.systemRole || 'WORKER';
+
+                // The PIN here used to be matched against every worker with no role check at
+                // all, so setting up the TV screen with your own personal PIN (manager, admin,
+                // anyone) put that real, full-privilege token in a URL left running on a
+                // shop-floor display indefinitely. It now only accepts the PIN of a dedicated
+                // TV-role account (SystemRole.TV), which has no access to anything beyond the
+                // handful of read-only endpoints tv.html actually calls - see DataSeeder's
+                // seeded "ТВ-Дисплей" account, or create more from Персонал in manager.html.
+                if (selectedRole === 'TV') {
+                    if (role !== 'TV') {
+                        throw new Error("Цей PIN належить не ТВ-акаунту. Використайте PIN, створений спеціально для ТВ-дисплея.");
+                    }
+                    window.location.href = `tv.html?token=${res.token}`;
+                    return;
+                }
+
+                // Check the role BEFORE persisting anything - otherwise a PIN that's valid for
+                // some worker but the wrong role (e.g. a real worker's PIN entered on the
+                // "Менеджер" card) left a real, working token sitting in localStorage even
+                // though the login was rejected and the user never left this page.
+                // ТЗ §12.2 groups Диспетчер/Керівник/Постачальник as the same "web login"
+                // authorization class (vs. the worker's PIN-pad mobile flow) - all three land
+                // on manager.html, which then shows/hides screens by role (see initApp).
+                if (selectedRole === 'MANAGER' && !['MANAGER', 'ADMIN', 'DISPATCHER', 'SUPPLIER'].includes(role)) {
+                    throw new Error("У вас немає прав менеджера");
+                }
+
+                localStorage.setItem('token', res.token);
+                localStorage.setItem('user', JSON.stringify(res.worker));
+
+                if (selectedRole === 'MANAGER') {
+                    window.location.href = 'manager.html';
+                } else if (selectedRole === 'WORKER') {
+                    window.location.href = 'worker.html';
+                }
+            } catch (err) {
+                showToast(err.message || 'Помилка входу', 'error');
+            } finally {
+                btn.innerText = 'Увійти';
+                btn.disabled = false;
+            }
+        });
+    </script>
 </body>
 </html>

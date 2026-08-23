@@ -9,6 +9,7 @@ import jakarta.persistence.JoinColumn;
 import java.util.UUID;
 
 @Entity
+@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Stage {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

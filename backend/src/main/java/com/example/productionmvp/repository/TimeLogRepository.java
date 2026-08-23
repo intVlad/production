@@ -12,6 +12,12 @@ public interface TimeLogRepository extends JpaRepository<TimeLog, UUID> {
     
     // For blocking tasks, we just want to close whatever session is open, regardless of who blocks it
     Optional<TimeLog> findByTaskAndEndTimeIsNull(Task task);
+
+    // Defensive variant: a race between two concurrent starts on the same task can leave more
+    // than one open TimeLog behind (see TaskRepository.findByIdLocked), which would make the
+    // Optional-returning query above throw IncorrectResultSizeDataAccessException instead of
+    // closing them out. Used to recover/close all open logs rather than crash.
+    java.util.List<TimeLog> findAllByTaskAndEndTimeIsNull(Task task);
     
     // Efficiently sum all duration seconds for the dashboard
     @org.springframework.data.jpa.repository.Query("SELECT SUM(t.durationSeconds) FROM TimeLog t")
@@ -22,4 +28,6 @@ public interface TimeLogRepository extends JpaRepository<TimeLog, UUID> {
     
     @org.springframework.transaction.annotation.Transactional
     void deleteByTask(Task task);
+    
+    java.util.List<TimeLog> findByTask(Task task);
 }

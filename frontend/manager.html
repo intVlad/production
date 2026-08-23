@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProdFlow MES v2 — Управління виробництвом</title>
+    <meta name="description" content="Система управління виробництвом та забезпеченням">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="background">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <!-- App Layout Container -->
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">ProdFlow MES</h1>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" id="nav-dashboard" data-view="dashboard"><i class="ph ph-squares-four"></i><span>Дашборд</span></a>
+                <a href="#" class="nav-item" id="nav-models" data-view="models"><i class="ph ph-cube"></i><span>Моделі</span></a>
+                <a href="#" class="nav-item" id="nav-series" data-view="series"><i class="ph ph-stack"></i><span>Серії</span></a>
+                <a href="#" class="nav-item" id="nav-production" data-view="production"><i class="ph ph-factory"></i><span>Виробництво</span></a>
+                <a href="#" class="nav-item" id="nav-batches" data-view="batches"><i class="ph ph-packages"></i><span>Партії</span></a>
+                <a href="#" class="nav-item" id="nav-pallets" data-view="pallets"><i class="ph ph-palette"></i><span>Піддони</span></a>
+                <a href="#" class="nav-item" id="nav-materials" data-view="materials"><i class="ph ph-box-arrow-down"></i><span>Матеріали</span></a>
+                <a href="#" class="nav-item" id="nav-workers" data-view="workers"><i class="ph ph-users"></i><span>Працівники</span></a>
+                <a href="#" class="nav-item" id="nav-sections" data-view="sections"><i class="ph ph-map-trifold"></i><span>Дільниці</span></a>
+                <a href="#" class="nav-item" id="nav-outsource" data-view="outsource"><span class="nav-icon">OS</span><span class="nav-label">Аутсорс</span></a>
+                <a href="#" class="nav-item" id="nav-defects" data-view="defects"><i class="ph ph-warning-circle"></i><span>Брак</span></a>
+                <a href="#" class="nav-item" id="nav-history" data-view="history"><i class="ph ph-clock-counter-clockwise"></i><span>Аудит</span></a>
+                
+                <div class="nav-divider"></div>
+                
+                <a href="#" class="nav-item" id="nav-worker-mobile" data-view="worker-mobile"><i class="ph ph-device-mobile"></i><span>Працівник</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="connection-status">
+                    <span id="live-dot" class="live-dot"></span>
+                    <span id="live-text">Підключено</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header">
+                <div class="header-left">
+                    <button class="mobile-menu-btn" id="btn-mobile-menu" aria-label="Відкрити меню">☰</button>
+                    <div class="breadcrumb" id="current-view-title">Дашборд</div>
+                </div>
+                <div class="header-right">
+                    <div class="user-info">
+                        <span id="current-user-name">Адміністратор</span>
+                        <button class="btn btn-outline btn-sm" id="btn-change-password" style="margin-right: 8px;">Змінити пароль</button>
+                        <button class="btn btn-outline btn-sm" id="btn-logout">Вихід</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- View Sections Container -->
+            <div class="views-container">
+                
+                <!-- 5.1 Dashboard View -->
+                <section class="view-section active" id="view-dashboard">
+                    <div class="dashboard-filters flex-row gap-4 mb-4">
+                      <input type="text" id="dash-filter-series" class="form-control" placeholder="Фільтр за серією (Серія ID)">
+                      <select id="dash-filter-worker" class="form-control">
+                        <option value="">Всі працівники</option>
+                      </select>
+                      <select id="dash-filter-status" class="form-control">
+                        <option value="">Всі статуси</option>
+                        <option value="CREATED">Створено</option>
+                        <option value="IN_PROGRESS">В роботі</option>
+                        <option value="COMPLETED">Завершено</option>
+                      </select>
+                      <select id="dash-filter-stage" class="form-control">
+                        <option value="">Всі етапи</option>
+                      </select>
+                      <button id="btn-apply-dash-filters" class="btn btn-primary">Застосувати</button>
+                    </div>
+
+                    <div class="stats-grid">
+                        <article class="glass-card stat-card">
+                            <div class="stat-card-icon"><i class="ph ph-gear"></i></div>
+                            <div class="stat-card-info">
+                                <h3 class="stat-card-label">Виробів у виробництві</h3>
+                                <div class="stat-value" id="stat-in-production">0</div>
+                            </div>
+                        </article>
+                        <article class="glass-card stat-card">
+                            <div class="stat-card-icon text-success"><i class="ph ph-check-circle"></i></div>
+                            <div class="stat-card-info">
+                                <h3 class="stat-card-label">Готових виробів</h3>
+                                <div class="stat-value text-success" id="stat-ready">0</div>
+                            </div>
+                        </article>
+                        <article class="glass-card stat-card">
+                            <div class="stat-card-icon text-info"><i class="ph ph-list-checks"></i></div>
+                            <div class="stat-card-info">
+                                <h3 class="stat-card-label">Активних завдань</h3>
+                                <div class="stat-value text-info" id="stat-active-tasks">0</div>
+                            </div>
+                        </article>
+                        <article class="glass-card stat-card alert">
+                            <div class="stat-card-icon text-danger"><i class="ph ph-clock-countdown"></i></div>
+                            <div class="stat-card-info">
+                                <h3 class="stat-card-label">Прострочено</h3>
+                                <div class="stat-value text-danger" id="stat-overdue">0</div>
+                            </div>
+                        </article>
+                        <article class="glass-card stat-card alert">
+                            <div class="stat-card-icon text-warning"><i class="ph ph-lock-key"></i></div>
+                            <div class="stat-card-info">
+                                <h3 class="stat-card-label">Заблоковано</h3>
+                                <div class="stat-value text-warning" id="stat-blocked">0</div>
+                            </div>
+                        </article>
+                        <article class="glass-card stat-card alert">
+                            <div class="stat-card-icon text-danger"><i class="ph ph-warning"></i></div>
+                            <div class="stat-card-info">
+                                <h3 class="stat-card-label">Дефіцит матеріалів</h3>
+                                <div class="stat-value text-danger" id="stat-deficit">0</div>
+                            </div>
+                        </article>
+                    </div>
+
+                    <div class="dashboard-panels">
+                        <article class="glass-card full-width">
+                            <h3>Активні Серії</h3>
+                            <div class="table-responsive">
+                                <table class="glass-table" id="dashboard-series-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Номер</th>
+                                            <th>Модель</th>
+                                            <th>Прогрес</th>
+                                            <th>Статус</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </article>
+
+                        <article class="glass-card full-width">
+                            <h3>Активні Завдання</h3>
+                            <div class="table-responsive">
+                                <table class="glass-table" id="dashboard-tasks-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Серія</th>
+                                            <th>Працівник</th>
+                                            <th>Статус</th>
+                                            <th>Пріоритет</th>
+                                            <th>Дедлайн</th>
+                                            <th>Дії</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </article>
+
+                        <div class="dashboard-grid-2">
+                            <article class="glass-card">
+                                <h3>Завантаженість постів</h3>
+                                <div id="dashboard-post-loads" class="viz-container">
+                                    <!-- Visualization goes here -->
+                                </div>
+                            </article>
+                            
+                            <article class="glass-card">
+                                <h3>Недавня історія (Аудит)</h3>
+                                <div id="dashboard-history" class="timeline-container">
+                                    <!-- Timeline items -->
+                                </div>
+                            </article>
+                        </div>
+
+                        <article class="glass-card full-width">
+                            <h3>Активні Працівники</h3>
+                            <div class="worker-list-container" id="dashboard-workers">
+                                <!-- Active workers cards -->
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- 5.2 Models View -->
+                <section class="view-section" id="view-models">
+                    <header class="view-header">
+                        <h2>Управління моделями</h2>
+                    </header>
+                    <div class="models-layout grid-1-2">
+                        <article class="glass-card">
+                            <h3>Створити Модель</h3>
+                            <form id="form-create-model" class="standard-form">
+                                <div class="form-group">
+                                    <label for="new-model-name">Назва моделі</label>
+                                    <input type="text" id="new-model-name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="model-version">Версія</label>
+                                    <input type="text" id="model-version" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="model-desc">Опис</label>
+                                    <textarea id="model-desc" rows="3"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Створити</button>
+                            </form>
+
+                            <h3 class="mt-4">Існуючі Моделі</h3>
+                            <div class="table-responsive">
+                                <table class="glass-table" id="models-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Назва</th>
+                                            <th>Версія</th>
+                                            <th>Вузли</th>
+                                            <th>Дії</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </article>
+
+                        <aside class="glass-card" id="model-assemblies-panel" style="display:none;">
+                            <h3>Вузли та Операції моделі: <span id="selected-model-name" class="text-accent"></span></h3>
+
+                            <div class="assemblies-container mt-2">
+                                <!-- List of assemblies -->
+                            </div>
+
+                            <div id="assembly-operations-panel" class="mt-2 hidden">
+                                <h4>Операції вузла <span id="selected-assembly-name" class="text-accent"></span></h4>
+                                <ol id="assembly-operations-list" class="mb-2"></ol>
+                            </div>
+
+                            <div class="forms-row mt-4">
+                                <div class="form-box">
+                                    <h4>Додати Вузол</h4>
+                                    <form id="form-add-assembly" class="standard-form">
+                                        <input type="text" id="assembly-code" placeholder="Код вузла" required>
+                                        <input type="text" id="assembly-name" placeholder="Назва вузла" required>
+                                        <input type="text" id="assembly-category" placeholder="Категорія" required>
+                                        <input type="text" id="assembly-parts" placeholder="Деталі (через кому)">
+                                        <button type="submit" class="btn btn-success btn-sm">Додати Вузол</button>
+                                    </form>
+                                </div>
+                                <div class="form-box">
+                                    <h4>Додати Операцію (до вибраного вузла)</h4>
+                                    <form id="form-add-operation" class="standard-form">
+                                        <input type="text" id="op-name" placeholder="Назва операції" required>
+                                        <input type="text" id="op-desc" placeholder="Опис операції">
+                                        <input type="number" id="op-norm-time" placeholder="Нормо-час (хв)" required>
+                                        <select id="op-section" required><option value="">Оберіть дільницю...</option></select>
+                                        <select id="op-post" required><option value="">Оберіть пост...</option></select>
+                                        <select id="op-type" required><option value="">Тип операції...</option></select>
+                                        <select id="op-depends-on"><option value="">Не залежить від інших операцій</option></select>
+                                        <input type="text" id="op-equipment" placeholder="Обладнання">
+                                        <input type="text" id="op-tools" placeholder="Інструменти">
+                                        <input type="text" id="op-qualification" placeholder="Необхідна кваліфікація">
+                                        <select id="op-material"><option value="">Без матеріалу</option></select>
+                                        <input type="number" id="op-material-qty" placeholder="Кількість матеріалу на виріб" min="0" step="0.01">
+                                        <button type="submit" class="btn btn-success btn-sm">Додати Операцію</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+                </section>
+
+                <!-- 5.3 Series View -->
+                <section class="view-section" id="view-series">
+                    <header class="view-header">
+                        <h2>Виробничі Серії</h2>
+                        <button class="btn btn-primary" onclick="document.getElementById('create-series-form-container').classList.toggle('hidden')">Нова Серія</button>
+                    </header>
+
+                    <article id="create-series-form-container" class="glass-card hidden mb-4">
+                        <h3>Створити Серію</h3>
+                        <form id="form-create-series" class="standard-form grid-form">
+                            <div class="form-group">
+                                <label for="series-model">Модель</label>
+                                <select id="series-model" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="series-number">Номер серії</label>
+                                <input type="text" id="series-number" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="series-qty">Кількість</label>
+                                <input type="number" id="series-qty" required min="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="series-priority">Пріоритет</label>
+                                <select id="series-priority">
+                                    <option value="LOW">Низький</option>
+                                    <option value="MEDIUM" selected>Середній</option>
+                                    <option value="HIGH">Високий</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="series-start-date">Дата початку</label>
+                                <input type="date" id="series-start-date" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="series-end-date">Дата завершення</label>
+                                <input type="date" id="series-end-date" required>
+                            </div>
+                            <div class="form-actions full-width">
+                                <button type="submit" class="btn btn-success">Запланувати Серію</button>
+                            </div>
+                        </form>
+                    </article>
+
+                    <article class="glass-card">
+                        <div class="table-responsive">
+                            <table class="glass-table" id="series-table">
+                                <thead>
+                                    <tr>
+                                        <th>Серія</th>
+                                        <th>Модель</th>
+                                        <th>Кількість</th>
+                                        <th>Статус</th>
+                                        <th>Пріоритет</th>
+                                        <th>Прогрес</th>
+                                        <th>Дати</th>
+                                        <th>Дії</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="series-table-body"></tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+
+                <!-- 5.4 Production View -->
+                <section class="view-section" id="view-production">
+                    <header class="view-header">
+                        <h2>Виробництво (Канбан)</h2>
+                    </header>
+                    <div class="kanban-board">
+                        <div class="kanban-column">
+                            <div class="kanban-header">
+                                <h3>Заплановано</h3>
+                                <span class="badge" id="kb-planned-count">0</span>
+                            </div>
+                            <div class="kanban-cards" id="kb-col-planned"></div>
+                        </div>
+                        <div class="kanban-column">
+                            <div class="kanban-header">
+                                <h3>У виробництві</h3>
+                                <span class="badge badge-primary" id="kb-wip-count">0</span>
+                            </div>
+                            <div class="kanban-cards" id="kb-col-wip"></div>
+                        </div>
+                        <div class="kanban-column">
+                            <div class="kanban-header">
+                                <h3>Готово</h3>
+                                <span class="badge badge-success" id="kb-done-count">0</span>
+                            </div>
+                            <div class="kanban-cards" id="kb-col-done"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 5.5 Batches View -->
+                <section class="view-section" id="view-batches">
+                    <header class="view-header">
+                        <h2>Партії Завдань</h2>
+                    </header>
+                    <div class="grid-1-2">
+                        <article class="glass-card">
+                            <h3>Створити Партію</h3>
+                            <form id="form-create-batch" class="standard-form">
+                                <div class="form-group">
+                                    <label for="batch-operation">Операція</label>
+                                    <select id="batch-operation" required></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="batch-worker">Працівник</label>
+                                    <select id="batch-worker"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="batch-planned-qty">План (Кількість)</label>
+                                    <input type="number" id="batch-planned-qty" required min="1">
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Створити</button>
+                            </form>
+                        </article>
+                        <article class="glass-card">
+                            <h3>Список Партій</h3>
+                            <div class="table-responsive">
+                                <table class="glass-table" id="batches-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Номер</th>
+                                            <th>Операція</th>
+                                            <th>Виконавець</th>
+                                            <th>Прогрес</th>
+                                            <th>Статус</th>
+                                            <th>Дії</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="batches-table-body"></tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- 5.6 Pallets View -->
+                <section class="view-section" id="view-pallets">
+                    <header class="view-header">
+                        <h2>Управління Піддонами</h2>
+                    </header>
+                    <div class="grid-1-2">
+                        <article class="glass-card">
+                            <h3>Створити Піддон</h3>
+                            <form id="form-create-pallet" class="standard-form">
+                                <div class="form-group">
+                                    <label for="pallet-product">Виріб (Власник)</label>
+                                    <select id="pallet-product" required></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="pallet-category">Категорія (вузол)</label>
+                                    <input type="text" id="pallet-category" required placeholder="напр. Основа, Кришка, Кріплення">
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Згенерувати Піддон</button>
+                            </form>
+                        </article>
+                        <article class="glass-card">
+                            <h3>Активні Піддони</h3>
+                            <div class="table-responsive">
+                                <table class="glass-table" id="pallets-table">
+                                    <thead>
+                                        <tr>
+                                            <th>QR/ID</th>
+                                            <th>Виріб</th>
+                                            <th>Категорія</th>
+                                            <th>Поточний Пост</th>
+                                            <th>Статус</th>
+                                            <th>Дії</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pallets-table-body"></tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- 5.7 Materials View -->
+                <section class="view-section" id="view-materials">
+                    <header class="view-header">
+                        <h2>Склад та Матеріали</h2>
+                    </header>
+                    <article class="glass-card mb-4">
+                        <h3>Калькулятор Потреб Серії</h3>
+                        <div class="flex-row gap-4 align-items-end">
+                            <div class="form-group flex-1">
+                                <label for="mat-calc-series">Оберіть Серію</label>
+                                <select id="mat-calc-series"></select>
+                            </div>
+                            <button class="btn btn-primary" id="btn-calc-materials">Розрахувати</button>
+                        </div>
+                        <div id="material-requirements-result" class="mt-4 hidden">
+                            <!-- Requirements shown here -->
+                        </div>
+                    </article>
+
+                    <article class="glass-card">
+                        <div class="flex-row justify-between align-items-center mb-4">
+                            <h3>Залишки на складі</h3>
+                            <button class="btn btn-success" id="btn-update-stock">Оновити залишки</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="glass-table" id="materials-table">
+                                <thead>
+                                    <tr>
+                                        <th>Назва</th>
+                                        <th>Од.вим.</th>
+                                        <th>В наявності</th>
+                                        <th>В резерві</th>
+                                        <th>Використано</th>
+                                        <th>Мін. залишок</th>
+                                        <th>Постачальник</th>
+                                        <th>Статус</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="materials-table-body"></tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+
+                <!-- 5.8 Workers View -->
+                <section class="view-section" id="view-workers">
+                    <header class="view-header">
+                        <h2>Персонал</h2>
+                    </header>
+                    <div class="grid-1-2">
+                        <article class="glass-card">
+                            <h3>Реєстрація Працівника</h3>
+                            <form id="form-register-worker" class="standard-form">
+                                <div class="form-group">
+                                    <label for="worker-name">ПІБ</label>
+                                    <input type="text" id="worker-name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="worker-systemRole">Системна Роль</label>
+                                    <select id="worker-systemRole">
+                                        <option value="WORKER">Робітник (WORKER)</option>
+                                        <option value="MANAGER">Менеджер (MANAGER)</option>
+                                        <option value="ADMIN">Адміністратор (ADMIN)</option>
+                                        <option value="DISPATCHER">Диспетчер (DISPATCHER)</option>
+                                        <option value="SUPPLIER">Постачальник (SUPPLIER)</option>
+                                        <option value="TV">ТВ-Дисплей (TV)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="worker-role">Роль</label>
+                                    <select id="worker-role">
+                                        <option value="operator">Оператор</option>
+                                        <option value="technician">Технік</option>
+                                        <option value="master">Майстер</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="worker-position">Посада</label>
+                                    <input type="text" id="worker-position" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="worker-section">Дільниця</label>
+                                    <select id="worker-section"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="worker-pin">PIN код (4 цифри)</label>
+                                    <input type="password" inputmode="numeric" id="worker-pin" maxlength="4" pattern="\d{4}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="worker-operations">Доступні операції (кваліфікація)</label>
+                                    <select id="worker-operations" multiple size="5"></select>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Зареєструвати</button>
+                            </form>
+                        </article>
+                        <article class="glass-card">
+                            <h3>Список Працівників</h3>
+                            <div class="table-responsive">
+                                <table class="glass-table" id="workers-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ПІБ</th>
+                                            <th>Посада</th>
+                                            <th>Дільниця</th>
+                                            <th>Пост</th>
+                                            <th>Кваліфікація (операції)</th>
+                                            <th>Статус</th>
+                                            <th>Дії</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- 5.9 Sections View -->
+                <section class="view-section" id="view-sections">
+                    <header class="view-header">
+                        <h2>Дільниці та Пости</h2>
+                    </header>
+                    <div class="grid-1-2">
+                        <div class="forms-col">
+                            <article class="glass-card">
+                                <h3>Створити Дільницю</h3>
+                                <form id="form-create-section" class="standard-form">
+                                    <div class="form-group">
+                                        <label for="section-name">Назва дільниці</label>
+                                        <input type="text" id="section-name" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="section-location">Локація (опціонально)</label>
+                                        <input type="text" id="section-location">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="section-area">Площа (кв.м)</label>
+                                        <input type="number" id="section-area" value="0">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Створити Дільницю</button>
+                                </form>
+                            </article>
+                            <article class="glass-card mt-4">
+                                <h3>Створити Пост</h3>
+                                <form id="form-create-post" class="standard-form">
+                                    <div class="form-group">
+                                        <label for="post-name">Назва поста</label>
+                                        <input type="text" id="post-name" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="post-section-select">Дільниця</label>
+                                        <select id="post-section-select" required></select>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Створити Пост</button>
+                                </form>
+                            </article>
+                        </div>
+                        <article class="glass-card">
+                            <h3>Структура Виробництва</h3>
+                            <div id="sections-tree-container" class="tree-container">
+                                <!-- Tree visualization of sections and posts -->
+                            </div>
+                            <h3 class="mt-4">Навантаження Постів</h3>
+                            <div id="sections-post-loads">
+                                <!-- Capacity bars -->
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- 5.10 Outsource View -->
+                <section class="view-section hidden" id="view-outsource">
+                  <header class="view-header"><h2>Аутсорс Логістика</h2></header>
+                  <div class="grid-1-2">
+                    <article class="glass-card">
+                      <h3>Новий Аутсорс Запис</h3>
+                      <form id="form-create-outsource" class="standard-form">
+                        <div class="form-group">
+                          <label for="outsource-partner">Партнер</label>
+                          <input type="text" id="outsource-partner" required placeholder="напр. ВК-Метал">
+                        </div>
+                        <div class="form-group">
+                          <label for="outsource-work-type">Тип Роботи</label>
+                          <input type="text" id="outsource-work-type" required placeholder="напр. Гальванічне покриття">
+                        </div>
+                        <div class="form-group">
+                          <label for="outsource-return-date">Очікувана дата повернення</label>
+                          <input type="date" id="outsource-return-date" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Створити Запис</button>
+                      </form>
+                    </article>
+                    <article class="glass-card">
+                      <h3>Активні Записи</h3>
+                      <div class="table-responsive">
+                        <table class="glass-table" id="outsource-table">
+                          <thead>
+                            <tr>
+                              <th>Партнер</th>
+                              <th>Тип</th>
+                              <th>Статус</th>
+                              <th>Час з відправки</th>
+                              <th>Термін</th>
+                              <th>Дії</th>
+                            </tr>
+                          </thead>
+                          <tbody></tbody>
+                        </table>
+                      </div>
+                    </article>
+                  </div>
+                </section>
+
+                <!-- 5.11 Defects View -->
+                <section class="view-section" id="view-defects">
+                    <header class="view-header">
+                        <h2>Управління Браком (Defects)</h2>
+                    </header>
+                    <div class="stats-grid mb-4">
+                        <article class="glass-card stat-card">
+                            <h3>Браку за сьогодні</h3>
+                            <div class="stat-value text-danger" id="defects-today">0</div>
+                        </article>
+                        <article class="glass-card stat-card">
+                            <h3>Браку за тиждень</h3>
+                            <div class="stat-value text-warning" id="defects-week">0</div>
+                        </article>
+                        <article class="glass-card stat-card">
+                            <h3>Браку за місяць</h3>
+                            <div class="stat-value" id="defects-month">0</div>
+                        </article>
+                    </div>
+                    <div class="grid-1-2">
+                        <article class="glass-card">
+                            <h3>Повідомити про брак</h3>
+                            <form id="form-report-defect" class="standard-form">
+                                <div class="form-group">
+                                    <label for="defect-item">Вузол / Серійний номер</label>
+                                    <select id="defect-item" required>
+                                        <option value="">Оберіть вузол...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="defect-reason">Причина браку</label>
+                                    <textarea id="defect-reason" rows="3" required></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="defect-resolution">Пропоноване рішення</label>
+                                    <select id="defect-resolution">
+                                        <option value="rework">Повторна обробка (Rework)</option>
+                                        <option value="scrap">Утилізація (Scrap)</option>
+                                        <option value="concession">Допуск з відхиленням</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-danger w-100">Зафіксувати Брак</button>
+                            </form>
+                        </article>
+                        <article class="glass-card">
+                            <h3>Журнал дефектів</h3>
+                            <div class="table-responsive">
+                                <table class="glass-table" id="defects-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Дата</th>
+                                            <th>Вузол</th>
+                                            <th>Причина</th>
+                                            <th>Рішення</th>
+                                            <th>Ким підтверджено</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- 5.11b Audit / History View -->
+                <section class="view-section" id="view-history">
+                    <header class="view-header">
+                        <h2>Аудит та Історія</h2>
+                    </header>
+                    <div class="dashboard-filters flex-row gap-4 mb-4">
+                      <select id="history-filter-worker" class="form-control">
+                        <option value="">Всі працівники</option>
+                      </select>
+                      <input type="date" id="history-filter-since" class="form-control" title="Від дати">
+                      <input type="date" id="history-filter-until" class="form-control" title="До дати">
+                      <button id="btn-apply-history-filters" class="btn btn-primary">Застосувати</button>
+                    </div>
+                    <article class="glass-card">
+                        <div class="table-responsive">
+                            <table class="glass-table" id="history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Дата і час</th>
+                                        <th>Дія</th>
+                                        <th>Працівник</th>
+                                        <th>Виріб</th>
+                                        <th>Операція</th>
+                                        <th>Серія</th>
+                                        <th>Партія</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+
+                <!-- 5.12 Worker Mobile View -->
+                <section class="view-section mobile-optimized" id="view-worker-mobile">
+                    <!-- Login Screen -->
+                    <article id="worker-login" class="glass-card mobile-card">
+                        <h2 class="text-center mb-4">Авторизація Працівника</h2>
+                        <div class="form-group">
+                            <label for="mobile-worker-select">Оберіть себе зі списку:</label>
+                            <select id="mobile-worker-select" class="large-select"></select>
+                        </div>
+                        <div class="text-center my-2">або</div>
+                        <button class="btn btn-outline w-100 mb-4" onclick="app.scanBadge()">Відсканувати бейдж</button>
+                        
+                        <div class="form-group">
+                            <label for="mobile-worker-pin">PIN код (4 цифри):</label>
+                            <input type="password" inputmode="numeric" id="mobile-worker-pin" maxlength="4" pattern="\d{4}" class="large-input text-center" placeholder="••••">
+                        </div>
+                        <button class="btn btn-primary w-100 large-btn mt-2" id="btn-worker-login">Увійти</button>
+                    </article>
+
+                    <!-- Main Worker Interface (Hidden until login) -->
+                    <article id="worker-main-interface" class="hidden">
+                        <header class="worker-header glass-card mb-2">
+                            <div class="worker-avatar"></div>
+                            <div class="worker-info">
+                                <h3 id="mobile-current-worker">Ім'я Працівника</h3>
+                                <p class="text-muted"><span id="mobile-current-section">Дільниця</span> | <span id="mobile-current-post">Пост</span></p>
+                            </div>
+                            <button class="btn btn-outline btn-sm" id="btn-worker-logout">Вихід</button>
+                        </header>
+
+                        <div class="mobile-actions grid-2-cols gap-2 mb-4">
+                            <button class="btn btn-primary large-btn" id="btn-scan-post">Скан Посту</button>
+                            <button class="btn btn-accent large-btn" id="btn-scan-pallet">Скан Піддону</button>
+                        </div>
+
+                        <div id="qr-reader-container" class="glass-card mb-4 hidden">
+                            <div id="qr-reader" style="width: 100%;"></div>
+                            <button class="btn btn-outline w-100 mt-2" onclick="app.stopScanner()">Скасувати</button>
+                        </div>
+
+                        <!-- Pallet Info Card (Hidden until scanned) -->
+                        <div id="mobile-pallet-card" class="glass-card mb-4 hidden">
+                            <header class="pallet-header flex-row justify-between mb-2">
+                                <h3>Піддон: <span id="mobile-pallet-id" class="text-accent"></span></h3>
+                                <div id="mobile-pallet-qr" class="mini-qr"></div>
+                            </header>
+                            <div class="pallet-details mb-4">
+                                <p><strong>Виріб:</strong> <span id="mobile-pallet-product"></span></p>
+                                <p><strong>Категорія:</strong> <span id="mobile-pallet-category"></span></p>
+                                <p><strong>Нормо-час:</strong> <span id="mobile-pallet-time"></span> хв</p>
+                                
+                                <h4 class="mt-2">Попередні етапи:</h4>
+                                <div id="mobile-pallet-prev-stages" class="badges-container"></div>
+                                
+                                <h4 class="mt-2">Вузли на піддоні:</h4>
+                                <ul id="mobile-pallet-assemblies" class="styled-list"></ul>
+                                
+                                <h4 class="mt-2 text-warning">Необхідні матеріали:</h4>
+                                <ul id="mobile-pallet-materials" class="styled-list"></ul>
+                            </div>
+
+                            <div class="timer-display text-center mb-4 hidden" id="mobile-op-timer">
+                                00:00:00
+                            </div>
+
+                            <div class="mobile-action-buttons">
+                                <button class="btn btn-success large-btn w-100 mb-2" id="btn-start-op">Почати</button>
+                                <div class="grid-2-cols gap-2 mb-2 hidden" id="mobile-active-controls">
+                                    <button class="btn btn-warning large-btn" id="btn-pause-op">Пауза</button>
+                                    <button class="btn btn-info large-btn hidden" id="btn-resume-op">Продовжити</button>
+                                    <button class="btn btn-success large-btn" id="btn-complete-op">Завершити</button>
+                                </div>
+                                <button class="btn btn-danger large-btn w-100" id="btn-damage-op">Ушкоджено (Брак)</button>
+                            </div>
+                        </div>
+
+                        <!-- Available Tasks List -->
+                        <div class="glass-card">
+                            <h3>Доступні завдання</h3>
+                            <div id="mobile-tasks-list" class="task-list mt-2">
+                                <!-- Task cards go here -->
+                                <p class="text-muted text-center py-4">Немає доступних завдань</p>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- QR Modal -->
+    <div id="qr-modal" class="modal">
+        <div class="modal-content glass-card text-center">
+            <h3 class="mb-2">QR Код</h3>
+            <p id="qr-modal-title" class="text-accent mb-2 fw-bold"></p>
+            <div id="qr-modal-code" class="qr-container bg-white p-2 border-radius-sm d-inline-block mb-4"></div>
+            <div>
+                <button class="btn btn-outline" onclick="app.closeModal('qr-modal')">Закрити</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content glass-card">
+            <h3 id="confirm-title">Підтвердження</h3>
+            <p id="confirm-message" class="my-4">Ви впевнені, що хочете виконати цю дію?</p>
+            <div class="flex-row justify-end gap-2">
+                <button class="btn btn-outline" id="btn-confirm-cancel">Скасувати</button>
+                <button class="btn btn-primary" id="btn-confirm-ok">Підтвердити</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detail-modal" class="modal">
+        <div class="modal-content glass-card modal-lg">
+            <div class="flex-row justify-between mb-4 border-bottom pb-2">
+                <h3 id="detail-title">Деталі</h3>
+                <button class="btn-close" onclick="app.closeModal('detail-modal')">✕</button>
+            </div>
+            <div id="detail-body" class="detail-content">
+                <!-- Dynamic content -->
+            </div>
+            <div class="flex-row justify-end mt-4 pt-2 border-top">
+                <button class="btn btn-outline" onclick="app.closeModal('detail-modal')">Закрити</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Change Modal -->
+    <div class="modal" id="modal-change-password">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>Зміна пароля/PIN</h2>
+                <button class="btn-close" onclick="document.getElementById('modal-change-password').classList.remove('active')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="form-change-password">
+                    <div class="form-group">
+                        <label>Новий PIN-код (4 цифри)</label>
+                        <input type="password" inputmode="numeric" id="new-password" class="form-control" required pattern="\d{4}" maxlength="4">
+                    </div>
+                    <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
+                        <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-change-password').classList.remove('active')">Скасувати</button>
+                        <button type="submit" class="btn btn-primary">Зберегти</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Worker PIN Change Modal -->
+    <div class="modal" id="modal-change-worker-pin">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>Змінити PIN-код працівника</h2>
+                <button class="btn-close" onclick="document.getElementById('modal-change-worker-pin').classList.remove('active')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="form-change-worker-pin">
+                    <input type="hidden" id="worker-id-for-pin">
+                    <div class="form-group">
+                        <label>Новий PIN-код (4 цифри)</label>
+                        <input type="password" inputmode="numeric" id="new-worker-pin" class="form-control" required pattern="\d{4}" maxlength="4">
+                    </div>
+                    <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
+                        <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-change-worker-pin').classList.remove('active')">Скасувати</button>
+                        <button type="submit" class="btn btn-primary">Зберегти</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <div class="modal-overlay hidden" id="modal-distribution" style="z-index: 10000; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;">
+      <div class="modal-content glass-card" style="width: 400px; padding: 2rem; position: relative;">
+        <h3>Розподіл Партії</h3>
+        <p id="dist-batch-info"></p>
+        <div class="standard-form">
+          <div class="form-group">
+            <label for="dist-pallet">Піддон</label>
+            <select id="dist-pallet"></select>
+          </div>
+          <div class="form-group">
+            <label for="dist-qty">Кількість</label>
+            <input type="number" id="dist-qty" min="1" required>
+          </div>
+          <div class="flex-row gap-4 mt-4">
+            <button class="btn btn-primary" id="btn-dist-submit">Розподілити</button>
+            <button class="btn btn-outline" id="btn-dist-close">Закрити</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay hidden" id="modal-pallet-detail" style="z-index: 10000; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;">
+      <div class="modal-content glass-card" style="width: 800px; padding: 2rem; max-height: 90vh; overflow-y: auto;">
+        <h3>Деталі Піддону</h3>
+        <div id="pallet-detail-info" class="mb-4"></div>
+        <h4>Вузли на піддоні</h4>
+        <div class="table-responsive mb-4">
+          <table class="glass-table" id="pallet-assemblies-table">
+            <thead><tr><th>ID</th><th>Назва</th><th>Статус</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <h4>Історія Переміщень</h4>
+        <div class="table-responsive">
+          <table class="glass-table" id="pallet-history-table">
+            <thead><tr><th>Дата</th><th>З поста</th><th>На пост</th><th>Хто перемістив</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="btn mt-4" id="btn-pallet-detail-close">Закрити</button>
+      </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/manager.js"></script>
+</body>
+</html>

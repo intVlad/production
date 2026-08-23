@@ -1,165 +1,127 @@
 package com.example.productionmvp.controller;
 
 import com.example.productionmvp.model.Task;
+import com.example.productionmvp.dto.TaskDTO;
+import com.example.productionmvp.dto.TaskActionRequestDTO;
 import com.example.productionmvp.repository.TaskRepository;
+import com.example.productionmvp.service.PrioritizationService;
 import com.example.productionmvp.service.TaskExecutionService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/tasks")
-@CrossOrigin(origins = "*") // Allow frontend to connect
+@CrossOrigin(origins = "*")
 public class TaskController {
-
-    private final TaskExecutionService taskExecutionService;
     private final TaskRepository taskRepository;
+    private final TaskExecutionService taskExecutionService;
+    private final PrioritizationService prioritizationService;
 
-    public TaskController(TaskExecutionService taskExecutionService, TaskRepository taskRepository) {
-        this.taskExecutionService = taskExecutionService;
+    public TaskController(TaskRepository taskRepository, TaskExecutionService taskExecutionService, PrioritizationService prioritizationService) {
         this.taskRepository = taskRepository;
+        this.taskExecutionService = taskExecutionService;
+        this.prioritizationService = prioritizationService;
     }
 
-    @GetMapping("/{taskId}")
-    public ResponseEntity<Task> getTask(@PathVariable UUID taskId) {
-        return taskRepository.findById(taskId)
+    // The JWT principal's "username" is the worker's own UUID (see UserDetailsServiceImpl) -
+    // this is the one source of truth for "who is actually making this call." Every action
+    // below used to trust a workerId supplied in the request body instead, which let any
+    // authenticated worker attribute a start/pause/complete/damage/cancel to a colleague (or a
+    // manager) just by passing their UUID - breaking the audit trail ТЗ §12.2 requires.
+    private UUID actingWorkerId(Authentication authentication) {
+        return UUID.fromString(authentication.getName());
+    }
+
+    @GetMapping
+    public ResponseEntity<List<TaskDTO>> getAllTasks() {
+        return ResponseEntity.ok(taskRepository.findAll().stream()
+                .map(TaskDTO::new)
+                .collect(Collectors.toList()));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<TaskDTO> getTaskById(@PathVariable UUID id) {
+        return taskRepository.findById(id)
+                .map(TaskDTO::new)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/search")
-    public ResponseEntity<Task> searchTaskBySerialNumber(@RequestParam String serialNumber) {
-        List<com.example.productionmvp.model.TaskStatus> activeStatuses = List.of(
-            com.example.productionmvp.model.TaskStatus.PENDING, 
-            com.example.productionmvp.model.TaskStatus.IN_PROGRESS,
-            com.example.productionmvp.model.TaskStatus.PAUSED,
-            com.example.productionmvp.model.TaskStatus.BLOCKED
-        );
-        List<Task> tasks = taskRepository.findByProductInstanceSerialNumberAndStatusIn(serialNumber, activeStatuses);
-        if (tasks.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        // Return the first active task for this serial number
-        return ResponseEntity.ok(tasks.get(0));
-    }
-
-    @GetMapping("/worker/{workerId}")
-    public ResponseEntity<List<Task>> getWorkerTasks(@PathVariable UUID workerId) {
-        List<com.example.productionmvp.model.TaskStatus> activeStatuses = List.of(
-            com.example.productionmvp.model.TaskStatus.PENDING, 
-            com.example.productionmvp.model.TaskStatus.IN_PROGRESS,
-            com.example.productionmvp.model.TaskStatus.PAUSED,
-            com.example.productionmvp.model.TaskStatus.BLOCKED
-        );
-        return ResponseEntity.ok(taskRepository.findByAssignedWorkerIdAndStatusIn(workerId, activeStatuses));
-    }
-
-    @GetMapping("/blocked")
-    public ResponseEntity<List<Task>> getBlockedTasks() {
-        return ResponseEntity.ok(taskRepository.findByStatus(com.example.productionmvp.model.TaskStatus.BLOCKED));
-    }
-
-    @GetMapping("/overdue")
-    public ResponseEntity<List<Task>> getOverdueTasks() {
-        List<com.example.productionmvp.model.TaskStatus> activeStatuses = List.of(
-            com.example.productionmvp.model.TaskStatus.PENDING, 
-            com.example.productionmvp.model.TaskStatus.IN_PROGRESS,
-            com.example.productionmvp.model.TaskStatus.PAUSED
-        );
-        List<Task> incomplete = taskRepository.findByStatusIn(activeStatuses);
-        List<Task> overdue = incomplete.stream()
-            .filter(t -> t.getDueDate() != null && t.getDueDate().isBefore(java.time.LocalDateTime.now()))
-            .toList();
-        return ResponseEntity.ok(overdue);
-    }
-
+    // ТЗ §16: виконання робочих операцій — виключна дія працівника; керівник/диспетчер
+    // не повинні мати змогу "виконувати" завдання за оператора.
+    @PreAuthorize("hasRole('WORKER') or hasRole('ADMIN')")
     @PostMapping("/{taskId}/start")
-    public ResponseEntity<Task> startTask(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
-        if (!body.containsKey("workerId") || body.get("workerId").isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-        UUID workerId = UUID.fromString(body.get("workerId"));
-        Task startedTask = taskExecutionService.startTask(taskId, workerId);
-        return ResponseEntity.ok(startedTask);
+    public ResponseEntity<TaskDTO> startTask(@PathVariable UUID taskId, Authentication authentication) {
+        return ResponseEntity.ok(new TaskDTO(taskExecutionService.startTask(taskId, actingWorkerId(authentication))));
     }
 
+    @PreAuthorize("hasRole('WORKER') or hasRole('ADMIN')")
     @PostMapping("/{taskId}/pause")
-    public ResponseEntity<Task> pauseTask(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
-        if (!body.containsKey("workerId") || body.get("workerId").isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-        UUID workerId = UUID.fromString(body.get("workerId"));
-        Task pausedTask = taskExecutionService.pauseTask(taskId, workerId);
-        return ResponseEntity.ok(pausedTask);
+    public ResponseEntity<TaskDTO> pauseTask(@PathVariable UUID taskId, Authentication authentication) {
+        return ResponseEntity.ok(new TaskDTO(taskExecutionService.pauseTask(taskId, actingWorkerId(authentication))));
     }
 
+    @PreAuthorize("hasRole('WORKER') or hasRole('ADMIN')")
+    @PostMapping("/{taskId}/resume")
+    public ResponseEntity<TaskDTO> resumeTask(@PathVariable UUID taskId, Authentication authentication) {
+        return ResponseEntity.ok(new TaskDTO(taskExecutionService.resumeTask(taskId, actingWorkerId(authentication))));
+    }
+
+    @PreAuthorize("hasRole('WORKER') or hasRole('ADMIN')")
     @PostMapping("/{taskId}/complete")
-    public ResponseEntity<Task> completeTask(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
-        if (!body.containsKey("workerId") || body.get("workerId").isEmpty()) {
-            return ResponseEntity.badRequest().build();
+    public ResponseEntity<TaskDTO> completeTask(@PathVariable UUID taskId, Authentication authentication) {
+        return ResponseEntity.ok(new TaskDTO(taskExecutionService.completeTask(taskId, actingWorkerId(authentication))));
+    }
+
+    @PreAuthorize("hasRole('WORKER') or hasRole('ADMIN')")
+    @PostMapping("/{taskId}/damage")
+    public ResponseEntity<TaskDTO> markDamaged(@PathVariable UUID taskId, @RequestBody TaskActionRequestDTO body, Authentication authentication) {
+        if (body == null || body.getReason() == null) {
+             return ResponseEntity.badRequest().build();
         }
-        UUID workerId = UUID.fromString(body.get("workerId"));
-        Task completedTask = taskExecutionService.completeTask(taskId, workerId);
-        return ResponseEntity.ok(completedTask);
+        return ResponseEntity.ok(new TaskDTO(taskExecutionService.markDamaged(
+                taskId, actingWorkerId(authentication), body.getReason(), body.getResolution())));
     }
 
-    @PostMapping("/{taskId}/block")
-    public ResponseEntity<Task> blockTask(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
-        if (!body.containsKey("workerId") || body.get("workerId").isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-        UUID workerId = UUID.fromString(body.get("workerId"));
-        Task blockedTask = taskExecutionService.blockTask(taskId, workerId);
-        return ResponseEntity.ok(blockedTask);
+    @PreAuthorize("hasRole('WORKER') or hasRole('DISPATCHER') or hasRole('MANAGER') or hasRole('ADMIN')")
+    @PostMapping("/{taskId}/cancel")
+    public ResponseEntity<TaskDTO> cancelTask(@PathVariable UUID taskId, Authentication authentication) {
+        return ResponseEntity.ok(new TaskDTO(taskExecutionService.cancelTask(taskId, actingWorkerId(authentication))));
     }
 
-    @PostMapping("/{taskId}/missing-materials")
-    public ResponseEntity<Task> reportMissingMaterials(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
-        String materialIdStr = body.get("materialId");
-        UUID materialId = materialIdStr != null && !materialIdStr.isEmpty() ? UUID.fromString(materialIdStr) : null;
-        String workerIdStr = body.get("workerId");
-        UUID workerId = workerIdStr != null && !workerIdStr.isEmpty() ? UUID.fromString(workerIdStr) : null;
-        Task updatedTask = taskExecutionService.reportMissingMaterials(taskId, materialId, workerId);
-        return ResponseEntity.ok(updatedTask);
+    // Manager-only undo for an accidentally completed task - see TaskExecutionService.reopenTask
+    // for why this isn't offered to workers as self-service.
+    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
+    @PostMapping("/{taskId}/reopen")
+    public ResponseEntity<TaskDTO> reopenTask(@PathVariable UUID taskId, Authentication authentication) {
+        return ResponseEntity.ok(new TaskDTO(taskExecutionService.reopenTask(taskId, actingWorkerId(authentication))));
     }
 
-    @PostMapping("/{taskId}/rework")
-    public ResponseEntity<Task> reworkTask(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
-        Task reworkedTask = taskExecutionService.reworkTask(taskId);
-        return ResponseEntity.ok(reworkedTask);
+    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
+    @PostMapping("/{taskId}/urgent")
+    public ResponseEntity<TaskDTO> setUrgentPriority(@PathVariable UUID taskId) {
+        return ResponseEntity.ok(new TaskDTO(prioritizationService.setUrgentPriority(taskId)));
     }
 
-    @PostMapping("/{taskId}/unblock")
-    public ResponseEntity<Task> unblockTask(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
-        Task unblockedTask = taskExecutionService.unblockTask(taskId);
-        return ResponseEntity.ok(unblockedTask);
+    @GetMapping("/post/{postId}/available")
+    public ResponseEntity<List<TaskDTO>> getAvailableTasksForPost(@PathVariable UUID postId, @RequestParam UUID workerId) {
+        return ResponseEntity.ok(prioritizationService.getAvailableTasksForPost(postId, workerId).stream()
+                .map(TaskDTO::new)
+                .collect(Collectors.toList()));
     }
 
-    @PostMapping("/{taskId}/materials-resolved")
-    public ResponseEntity<Task> resolveMissingMaterials(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
-        Task resolvedTask = taskExecutionService.resolveMissingMaterials(taskId);
-        return ResponseEntity.ok(resolvedTask);
-    }
-
-    @PostMapping("/{taskId}/simulate-time")
-    public ResponseEntity<Task> simulateTime(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
-        if (!body.containsKey("workerId") || body.get("workerId").isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-        UUID workerId = UUID.fromString(body.get("workerId"));
-        long seconds = Long.parseLong(body.getOrDefault("seconds", "3600"));
-        Task updatedTask = taskExecutionService.simulateTime(taskId, workerId, seconds);
-        return ResponseEntity.ok(updatedTask);
-    }
-
-    @PostMapping("/{taskId}/assign")
-    public ResponseEntity<Task> assignTask(@PathVariable UUID taskId, @RequestBody Map<String, String> body) {
-        String workerIdStr = body.get("workerId");
-        UUID workerId = workerIdStr != null && !workerIdStr.isEmpty() ? UUID.fromString(workerIdStr) : null;
-        Task assignedTask = taskExecutionService.assignTask(taskId, workerId);
-        return ResponseEntity.ok(assignedTask);
+    @GetMapping("/assembly-instance/{assemblyInstanceId}")
+    public ResponseEntity<List<TaskDTO>> getTasksForAssemblyInstance(@PathVariable UUID assemblyInstanceId) {
+        List<TaskDTO> tasks = taskRepository.findByAssemblyInstanceId(assemblyInstanceId).stream()
+                .map(TaskDTO::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(tasks);
     }
 }

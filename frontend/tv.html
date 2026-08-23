@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MES - TV Інформаційна панель</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/tv.css">
+</head>
+<body>
+    <div id="unauthorized-msg" class="glass-panel" style="display: none; margin: auto; text-align: center; padding: 60px;">
+        <h1 style="color: var(--danger); font-size: 4rem; margin-bottom: 20px;">Неавторизований дисплей</h1>
+        <p style="font-size: 2rem; color: var(--text-muted);">Будь ласка, надайте токен доступу в URL (?token=...)</p>
+    </div>
+
+    <div id="tv-dashboard" style="display: none; width: 100%; height: 100%;">
+        <header class="tv-header glass-panel">
+            <div class="logo">MES Dashboard</div>
+            <div class="clock" id="clock">00:00:00</div>
+        </header>
+        
+        <div id="connection-error-msg" class="glass-panel" style="display: none; background-color: var(--danger); color: white; text-align: center; padding: 10px; font-weight: bold; z-index: 1000; position: absolute; top: 80px; left: 50%; transform: translateX(-50%); border-radius: 8px;">
+            Втрачено з'єднання з сервером. Дані можуть бути неактуальними.
+        </div>
+
+        <div class="slides-container">
+            <!-- Slide 1: General Stats -->
+            <div class="slide active" id="slide-1">
+                <h2 class="slide-title">Загальна статистика</h2>
+                <div class="stats-grid">
+                    <div class="stat-card glass-panel">
+                        <div class="stat-value text-primary" id="stat-active-series">0</div>
+                        <div class="stat-label">Активні серії</div>
+                    </div>
+                    <div class="stat-card glass-panel">
+                        <div class="stat-value text-success" id="stat-completed-today">0</div>
+                        <div class="stat-label">Готово до відвантаження</div>
+                    </div>
+                    <div class="stat-card glass-panel">
+                        <div class="stat-value text-warning" id="stat-in-progress">0</div>
+                        <div class="stat-label">В процесі</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 2: Kanban -->
+            <div class="slide" id="slide-2">
+                <h2 class="slide-title">Канбан (Активні завдання)</h2>
+                <div class="kanban-board" id="kanban-container">
+                    <!-- Dynamic kanban columns will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Slide 3: Post Load -->
+            <div class="slide" id="slide-3">
+                <h2 class="slide-title">Завантаження постів</h2>
+                <div class="post-load-list" id="post-load-container">
+                    <!-- Dynamic post load bars will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Slide 4: Problem Zones -->
+            <div class="slide" id="slide-4">
+                <h2 class="slide-title">Проблемні зони</h2>
+                <div class="problem-stats-grid">
+                    <div class="stat-card glass-panel">
+                        <div class="stat-value text-danger" id="stat-material-deficits">0</div>
+                        <div class="stat-label">Дефіцит матеріалів</div>
+                    </div>
+                    <div class="stat-card glass-panel">
+                        <div class="stat-value text-warning" id="stat-defects-today">0</div>
+                        <div class="stat-label">Брак сьогодні</div>
+                    </div>
+                    <div class="stat-card glass-panel">
+                        <div class="stat-value text-primary" id="stat-outsource-active">0</div>
+                        <div class="stat-label">Аутсорс активний</div>
+                    </div>
+                    <div class="stat-card glass-panel">
+                        <div class="stat-value text-danger" id="stat-outsource-overdue">0</div>
+                        <div class="stat-label">Аутсорс прострочено</div>
+                    </div>
+                </div>
+                <div class="outsource-list glass-panel" id="outsource-list-container" style="padding: 20px;">
+                    <!-- Dynamic outsource rows will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Slide 5: Products Table -->
+            <div class="slide" id="slide-5">
+                <h2 class="slide-title">Активні завдання по виробах</h2>
+                <div class="tv-table-wrap glass-panel" style="padding: 20px;">
+                    <table class="tv-table">
+                        <thead>
+                            <tr>
+                                <th>Виріб</th>
+                                <th>Серія</th>
+                                <th>Етап</th>
+                                <th>Працівник</th>
+                                <th>Статус</th>
+                                <th>План (хв)</th>
+                                <th>Факт (хв)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-table-body">
+                            <!-- Dynamic rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include api.js for fetching data. Another agent is creating this file. -->
+    <script src="js/api.js"></script>
+    <script src="js/tv.js"></script>
+</body>
+</html>

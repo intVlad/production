@@ -21,7 +21,11 @@ public class DashboardController {
     }
 
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getDashboardData() {
-        return ResponseEntity.ok(dashboardService.getDashboardData());
+    public ResponseEntity<com.example.productionmvp.dto.DashboardResponseDTO> getDashboardData(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) java.util.UUID seriesId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) java.util.UUID workerId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String status,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String stage) {
+        return ResponseEntity.ok(dashboardService.getDashboardData(seriesId, workerId, status, stage));
     }
 }

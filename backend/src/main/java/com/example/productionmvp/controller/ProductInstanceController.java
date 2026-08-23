@@ -3,6 +3,7 @@ package com.example.productionmvp.controller;
 import com.example.productionmvp.model.*;
 import com.example.productionmvp.repository.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,17 +23,26 @@ public class ProductInstanceController {
     private final StageRepository stageRepository;
     private final TaskRepository taskRepository;
     private final WorkerRepository workerRepository;
+    private final AssemblyInstanceRepository assemblyInstanceRepository;
+    private final PalletRepository palletRepository;
+    private final com.example.productionmvp.service.TaskExecutionService taskExecutionService;
 
     public ProductInstanceController(ProductModelRepository productModelRepository,
                                      ProductInstanceRepository productInstanceRepository,
                                      StageRepository stageRepository,
                                      TaskRepository taskRepository,
-                                     WorkerRepository workerRepository) {
+                                     WorkerRepository workerRepository,
+                                     AssemblyInstanceRepository assemblyInstanceRepository,
+                                     PalletRepository palletRepository,
+                                     com.example.productionmvp.service.TaskExecutionService taskExecutionService) {
         this.productModelRepository = productModelRepository;
         this.productInstanceRepository = productInstanceRepository;
         this.stageRepository = stageRepository;
         this.taskRepository = taskRepository;
         this.workerRepository = workerRepository;
+        this.assemblyInstanceRepository = assemblyInstanceRepository;
+        this.palletRepository = palletRepository;
+        this.taskExecutionService = taskExecutionService;
     }
 
     @GetMapping("/models")
@@ -42,42 +52,61 @@ public class ProductInstanceController {
 
     @PostMapping("/start")
     @Transactional
-    public ResponseEntity<Task> startProduction(@RequestBody Map<String, String> body) {
-        String modelIdStr = body.get("modelId");
-        String serialNumber = body.get("serialNumber");
-        String workerIdStr = body.get("workerId");
+    @PreAuthorize("hasRole('DISPATCHER') or hasRole('MANAGER') or hasRole('ADMIN')")
+    public ResponseEntity<List<Task>> startProduction(@RequestBody com.example.productionmvp.dto.StartProductionRequestDTO body) {
+        UUID modelId = body.getModelId();
+        String serialNumber = body.getSerialNumber();
+        UUID workerId = body.getWorkerId();
 
-        if (modelIdStr == null || serialNumber == null || serialNumber.trim().isEmpty()) {
+        if (modelId == null || serialNumber == null || serialNumber.trim().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
 
-        ProductModel model = productModelRepository.findById(UUID.fromString(modelIdStr))
-                .orElseThrow(() -> new RuntimeException("Model not found"));
+        ProductModel model = productModelRepository.findById(modelId)
+                .orElseThrow(() -> new com.example.productionmvp.exception.EntityNotFoundException("Model not found"));
 
         ProductInstance instance = new ProductInstance();
         instance.setProductModel(model);
+        instance.setModelVersion(model.getVersion());
         instance.setSerialNumber(serialNumber);
-        instance.setStatus(InstanceStatus.PENDING);
+        instance.setStatus(InstanceStatus.PLANNED);
         productInstanceRepository.save(instance);
 
-        Optional<Stage> firstStage = stageRepository.findByProductModelAndOrderIndex(model, 1);
-        if (firstStage.isEmpty()) {
-            throw new RuntimeException("No stages defined for this product model");
-        }
+        List<Task> createdTasks = new java.util.ArrayList<>();
 
-        Task firstTask = new Task();
-        firstTask.setProductInstance(instance);
-        firstTask.setStage(firstStage.get());
-        firstTask.setStatus(TaskStatus.PENDING);
-        firstTask.setCreatedAt(LocalDateTime.now());
-        firstTask.setDueDate(LocalDateTime.now().plusDays(1));
+        if (model.getAssemblies() != null && !model.getAssemblies().isEmpty()) {
+            for (Assembly assembly : model.getAssemblies()) {
+                AssemblyInstance asmInstance = new AssemblyInstance();
+                asmInstance.setAssembly(assembly);
+                asmInstance.setProductInstance(instance);
+                asmInstance.setStatus(AssemblyInstanceStatus.PLANNED);
+                asmInstance = assemblyInstanceRepository.save(asmInstance);
+
+                List<Operation> initialOps = assembly.getOperations().stream()
+                        .filter(op -> op.getDependsOnOperation() == null)
+                        .toList();
+
+                for (Operation firstOp : initialOps) {
+                    Task task = taskExecutionService.createIndividualTask(
+                            asmInstance.getId(), firstOp.getId(), workerId, 
+                            firstOp.getPost() != null ? firstOp.getPost().getId() : null);
+                    createdTasks.add(task);
+                }
+            }
+        }
         
-        if (workerIdStr != null && !workerIdStr.trim().isEmpty()) {
-            Worker worker = workerRepository.findById(UUID.fromString(workerIdStr)).orElse(null);
-            firstTask.setAssignedWorker(worker);
-        }
-
-        Task savedTask = taskRepository.save(firstTask);
-        return ResponseEntity.ok(savedTask);
+        return ResponseEntity.ok(createdTasks);
+    }
+    
+    @GetMapping("/{id}/assemblies")
+    public ResponseEntity<List<AssemblyInstance>> getAssemblyInstances(@PathVariable UUID id) {
+        List<AssemblyInstance> assemblies = assemblyInstanceRepository.findByProductInstanceId(id);
+        return ResponseEntity.ok(assemblies);
+    }
+    
+    @GetMapping("/{id}/pallets")
+    public ResponseEntity<List<Pallet>> getPallets(@PathVariable UUID id) {
+        List<Pallet> pallets = palletRepository.findByOwnerProductId(id);
+        return ResponseEntity.ok(pallets);
     }
 }

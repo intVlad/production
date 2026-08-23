@@ -1,4 +1,7 @@
 spring:
+  jackson:
+    serialization:
+      fail-on-empty-beans: false
   datasource:
     # Use Postgres if env vars are present (e.g. Docker/GCP), otherwise default to H2 in-memory
     url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:production_mvp;DB_CLOSE_DELAY=-1}
@@ -20,3 +23,7 @@ spring:
 
 server:
   port: ${PORT:8080}
+
+jwt:
+  secret: ${JWT_SECRET:c2VjdXJlLXByb2R1Y3Rpb24tbXZwLWp3dC1zZWNyZXQta2V5LTI1Ni1iaXRzLW1pbmltdW0tcmVxdWlyZWQ=}
+  expiration-ms: 28800000
