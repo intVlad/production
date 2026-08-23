@@ -232,6 +232,15 @@ function switchView(viewId) {
     }
   });
 
+  // The header breadcrumb was fixed markup reading "Дашборд", so it named the wrong section
+  // on every screen except the one it happened to be written for. Taken from the nav item
+  // itself so the two can't drift apart as sections are added or renamed.
+  const breadcrumb = document.getElementById('current-view-title');
+  const activeNav = document.querySelector(`.nav-item[data-view="${viewId}"]`);
+  if (breadcrumb && activeNav) {
+    breadcrumb.innerText = (activeNav.innerText || '').trim() || breadcrumb.innerText;
+  }
+
   loadViewData(viewId);
 }
 
