@@ -635,6 +635,16 @@ async function loadBatchesData() {
   }
 }
 
+// Quantities are doubles, so norm × quantity lands on values like 0.1 × 3 =
+// 0.30000000000000004, which was printed to the manager verbatim. Round to a precision no
+// warehouse cares beyond, then drop trailing zeros so whole numbers stay "6", not "6.000".
+function formatQty(value) {
+  if (value === null || value === undefined || value === '') return '0';
+  const n = Number(value);
+  if (!isFinite(n)) return escapeHtml(String(value));
+  return String(Number(n.toFixed(3)));
+}
+
 function formatElapsed(dateStr) {
   if (!dateStr) return '-';
   const sent = new Date(dateStr);
@@ -776,10 +786,10 @@ async function loadMaterialsData() {
         <tr>
           <td>${escapeHtml(m.name)}</td>
           <td>${escapeHtml(m.unit || '-')}</td>
-          <td>${m.availableStock ?? 0}</td>
-          <td>${m.reservedQuantity ?? 0}</td>
-          <td>${m.usedQuantity ?? 0}</td>
-          <td>${m.minimumStock ?? 0}</td>
+          <td>${formatQty(m.availableStock)}</td>
+          <td>${formatQty(m.reservedQuantity)}</td>
+          <td>${formatQty(m.usedQuantity)}</td>
+          <td>${formatQty(m.minimumStock)}</td>
           <td>${escapeHtml(m.supplier || '-')}</td>
           <td><span class="badge badge-${m.supplyStatus === 'SUFFICIENT' ? 'success' : (m.supplyStatus === 'CRITICAL_DEFICIT' ? 'danger' : 'warning')}">${escapeHtml(m.supplyStatus || '-')}</span></td>
         </tr>
@@ -990,10 +1000,10 @@ function setupEventListeners() {
               ${requirements.map(r => `
                 <tr class="${r.status !== 'SUFFICIENT' ? 'overdue-row' : ''}">
                   <td>${escapeHtml(r.materialName)}</td>
-                  <td>${r.required} ${escapeHtml(r.unit || '')}</td>
-                  <td>${r.available}</td>
-                  <td>${r.reserved}</td>
-                  <td>${r.deficit}</td>
+                  <td>${formatQty(r.required)} ${escapeHtml(r.unit || '')}</td>
+                  <td>${formatQty(r.available)}</td>
+                  <td>${formatQty(r.reserved)}</td>
+                  <td>${formatQty(r.deficit)}</td>
                   <td>${escapeHtml(r.status)}</td>
                 </tr>
               `).join('')}
