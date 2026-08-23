@@ -91,13 +91,25 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(ex, HttpStatus.BAD_REQUEST);
     }
 
-    // "The given id must not be null" — a request omitted an id the handler then passed
-    // straight into findById. That is the caller's omission, so it should read as one.
+    // "The given id must not be null" means a request omitted an id the handler passed straight
+    // into findById — the caller's omission, and it should read as one.
+    //
+    // Everything else this exception covers is our own misuse of the JPA API, which is a server
+    // fault. Mapping the whole type to 400 once turned a genuine bug (a fetch join illegally
+    // reused in a Spring Data count query) into a tidy "the request is missing an identifier",
+    // and it took a second investigation to find because the response looked like the caller's
+    // fault. Only the null-id case is reported as a client error; the rest fall through to the
+    // catch-all below and are logged with their stack trace.
     @ExceptionHandler(org.springframework.dao.InvalidDataAccessApiUsageException.class)
-    public ResponseEntity<Map<String, Object>> handleInvalidDataAccess(Exception ex) {
-        return buildErrorResponse(
-            new IllegalArgumentException("У запиті бракує обов'язкового ідентифікатора."),
-            HttpStatus.BAD_REQUEST);
+    public ResponseEntity<Map<String, Object>> handleInvalidDataAccess(
+            org.springframework.dao.InvalidDataAccessApiUsageException ex) {
+        String message = ex.getMessage() == null ? "" : ex.getMessage();
+        if (message.contains("must not be null")) {
+            return buildErrorResponse(
+                new IllegalArgumentException("У запиті бракує обов'язкового ідентифікатора."),
+                HttpStatus.BAD_REQUEST);
+        }
+        return handleGeneralException(ex);
     }
 
     // Oversized text and unique-key clashes surface here. The underlying message names columns
