@@ -65,6 +65,12 @@ public class WorkerController {
         if (body.getName() == null || body.getName().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
+        // Checked before the worker row is written, not after: this method isn't transactional,
+        // so rejecting the PIN once the worker is already saved would leave behind an account
+        // with no PIN that nobody can log into and the manager didn't know got created.
+        if (body.getPin() != null && !body.getPin().isEmpty()) {
+            authService.assertPinAvailable(body.getPin(), null);
+        }
         Worker worker = new Worker();
         worker.setName(body.getName());
         worker.setRole(body.getRole());

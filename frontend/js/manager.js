@@ -19,6 +19,22 @@ const state = Object.assign(window.state, {
   eventSource: null
 });
 
+// The sidebar's dot and "Підключено" label were fixed markup that nothing ever changed, so
+// the dashboard claimed a live connection even with the backend down or the network gone.
+// On a shop floor that is the one thing this indicator exists to be honest about: a manager
+// acting on numbers that silently stopped updating is worse off than one who can see the feed
+// dropped.
+function setLiveStatus(connected, label) {
+  const dot = document.getElementById('live-dot');
+  const text = document.getElementById('live-text');
+  if (text) text.innerText = label;
+  if (dot) {
+    dot.style.background = connected ? 'var(--success)' : 'var(--danger, #ef4444)';
+    dot.style.boxShadow = connected ? '0 0 10px var(--success-glow)' : 'none';
+    dot.style.animation = connected ? '' : 'none';
+  }
+}
+
 function connectSSE() {
   if (!state.token) return;
   if (state.eventSource) {
@@ -26,13 +42,26 @@ function connectSSE() {
   }
   const evtSource = new EventSource(API_BASE + '/events/stream?token=' + state.token);
   state.eventSource = evtSource;
-  
+
+  evtSource.onopen = () => setLiveStatus(true, 'Підключено');
+  evtSource.onerror = () => {
+    // EventSource retries on its own; report the gap rather than tearing the stream down.
+    setLiveStatus(false, navigator.onLine ? 'Немає зв\'язку з сервером' : 'Немає мережі');
+  };
+
   evtSource.onmessage = function(event) {
+    setLiveStatus(true, 'Підключено');
     if (event.data === "dashboard_update" && state.currentView === 'dashboard') {
       loadDashboardData();
     }
   };
 }
+
+window.addEventListener('offline', () => setLiveStatus(false, 'Немає мережі'));
+window.addEventListener('online', () => {
+  setLiveStatus(false, 'Відновлення…');
+  connectSSE();
+});
 
 const dom = {};
 
@@ -64,27 +93,6 @@ function initDOM() {
   // Pallets & Batches
   dom.palletsTable = document.getElementById('pallets-table-body');
   dom.batchesTable = document.getElementById('batches-table-body');
-
-  // Worker Mobile
-  dom.workerLoginSection = document.getElementById('worker-login');
-  dom.workerWorkspaceSection = document.getElementById('worker-main-interface');
-  dom.mobileWorkerSelect = document.getElementById('mobile-worker-select');
-  dom.loginPinInput = document.getElementById('mobile-worker-pin');
-  dom.loginBtn = document.getElementById('btn-worker-login');
-  dom.workerGreeting = document.getElementById('mobile-current-worker');
-  
-  // Generic scan buttons for worker mobile view
-  dom.btnScanPost = document.getElementById('btn-scan-post');
-  dom.btnScanPallet = document.getElementById('btn-scan-pallet');
-  dom.startScanBtn = document.getElementById('start-scan-btn');
-  dom.qrReader = document.getElementById('qr-reader');
-  
-  dom.taskDetails = document.getElementById('task-details');
-  dom.btnTaskStart = document.getElementById('btn-task-start');
-  dom.btnTaskPause = document.getElementById('btn-task-pause');
-  dom.btnTaskResume = document.getElementById('btn-task-resume');
-  dom.btnTaskComplete = document.getElementById('btn-task-complete');
-  dom.taskTimer = document.getElementById('task-timer');
 }
 
 function showToast(message, type = 'info') {
@@ -236,7 +244,6 @@ const viewLoaders = {
   'batches': loadBatchesData,
   'outsource': loadOutsourceData,
   'workers': loadWorkersData,
-  'worker': async () => checkWorkerState(),
   'defects': loadDefectsData,
   'sections': loadSectionsData,
   'materials': loadMaterialsData,
@@ -550,7 +557,7 @@ async function loadPalletsData() {
         <td>${escapeHtml(p.currentPost ? p.currentPost.name : '-')}</td>
         <td>${escapeHtml(p.status)}</td>
         <td>
-          <button class="btn btn-sm btn-outline btn-generate-qr" data-code="${escapeHtml(p.qrCode || p.code || p.id)}">QR</button>
+          <button class="btn btn-sm btn-outline btn-generate-qr" data-code="${escapeHtml(p.qrCode || p.code || p.id)}" data-label="Піддон: ${escapeHtml(p.qrCode || p.code || p.id)}">QR</button>
           <button class="btn btn-sm btn-info btn-pallet-details" data-id="${p.id}">Деталі</button>
         </td>
       </tr>
@@ -693,11 +700,45 @@ async function loadDefectsData() {
         <td>${escapeHtml(d.confirmedBy?.name || '-')}</td>
       </tr>
     `).join('');
+
+    renderDefectCounters(defects);
   } catch (e) {
     console.error(e);
   }
 
   await loadDefectAssemblyOptions();
+}
+
+// These three cards were static "0"s in the markup that nothing ever wrote to, so the defect
+// screen reported zero defects today/this week/this month no matter how many the table below
+// it was listing — a manager reading that would conclude there was no quality problem at all.
+// Counted from the same records the table renders, so the headline figures can never disagree
+// with the rows underneath them.
+function renderDefectCounters(defects) {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekAgo = new Date(startOfToday);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const monthAgo = new Date(startOfToday);
+  monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+  let today = 0, week = 0, month = 0;
+  (defects || []).forEach(d => {
+    if (!d.createdAt) return;
+    const at = new Date(d.createdAt);
+    if (isNaN(at)) return;
+    if (at >= startOfToday) today++;
+    if (at >= weekAgo) week++;
+    if (at >= monthAgo) month++;
+  });
+
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = value;
+  };
+  set('defects-today', today);
+  set('defects-week', week);
+  set('defects-month', month);
 }
 
 // The "Вузол / Серійний номер" field used to be free text that the submit handler never
@@ -843,7 +884,7 @@ async function loadSectionsData() {
           <div class="mb-3 p-3 glass-card" style="border-left: 4px solid var(--primary-color);">
             <strong style="font-size: 1.1rem;">${escapeHtml(s.name)}</strong> ${s.location ? `<span class="text-muted">(${escapeHtml(s.location)})</span>` : ''}
             <ul style="margin-top: 10px; padding-left: 20px; list-style-type: disc;">
-              ${sectionPosts.map(p => `<li style="padding-bottom: 5px;">${escapeHtml(p.name)} <span class="badge badge-sm badge-info">Ємність: ${p.maxCapacity || 1}</span></li>`).join('')}
+              ${sectionPosts.map(p => `<li style="padding-bottom: 5px; display: flex; align-items: center; gap: 8px;"><span>${escapeHtml(p.name)}</span> <span class="badge badge-sm badge-info">Ємність: ${p.maxCapacity || 1}</span> <button class="btn btn-sm btn-outline btn-generate-qr" data-code="${p.id}" data-label="Пост: ${escapeHtml(p.name)}">QR</button></li>`).join('')}
               ${sectionPosts.length === 0 ? '<li class="text-muted">Немає постів</li>' : ''}
             </ul>
           </div>
@@ -881,9 +922,11 @@ async function loadSectionsData() {
   }
 }
 
-function generatePalletQR(code) {
+function generatePalletQR(code, label) {
     const qrContainer = document.getElementById('qr-modal-code');
     if (!qrContainer) return;
+    const titleEl = document.getElementById('qr-modal-title');
+    if (titleEl) titleEl.innerText = label || code;
     qrContainer.innerHTML = '';
     if (window.QRCode) {
         new QRCode(qrContainer, {
@@ -901,51 +944,6 @@ function generatePalletQR(code) {
     if (modal) modal.style.display = 'flex';
 }
 
-// Worker Mobile Logic
-function checkWorkerState() {
-  if (state.isWorkerLoggedIn) {
-    if (dom.workerLoginSection) dom.workerLoginSection.style.display = 'none';
-    if (dom.workerWorkspaceSection) dom.workerWorkspaceSection.style.display = 'block';
-    if (dom.workerGreeting) dom.workerGreeting.innerText = `Вітаємо, ${state.currentWorker.name}`;
-  } else {
-    if (dom.workerLoginSection) dom.workerLoginSection.style.display = 'block';
-    if (dom.workerWorkspaceSection) dom.workerWorkspaceSection.style.display = 'none';
-  }
-}
-
-async function handleWorkerLogin() {
-  if (!dom.loginPinInput) return;
-  const pin = dom.loginPinInput.value;
-  const workerId = dom.mobileWorkerSelect ? dom.mobileWorkerSelect.value : null;
-  
-  if (!workerId) return showToast('Оберіть працівника', 'warning');
-  if (!pin) return showToast('Введіть PIN', 'warning');
-  
-  try {
-    if(dom.loginBtn) {
-        dom.loginBtn.innerText = 'Завантаження...';
-        dom.loginBtn.disabled = true;
-    }
-    const payload = await Services.Workers.login(workerId, pin);
-    state.currentWorker = payload.worker;
-    state.token = payload.token;
-    state.isWorkerLoggedIn = true;
-    localStorage.setItem('token', payload.token);
-    localStorage.setItem('user', JSON.stringify(payload.worker));
-    showToast('Успішний вхід', 'success');
-    checkWorkerState();
-    connectSSE();
-  } catch (e) {
-    // Error handled in API wrapper
-  } finally {
-    if(dom.loginBtn) {
-        dom.loginBtn.innerText = 'Увійти';
-        dom.loginBtn.disabled = false;
-    }
-    dom.loginPinInput.value = '';
-  }
-}
-
 window.app = {
   openModal: function(id) {
     const modal = document.getElementById(id);
@@ -957,137 +955,8 @@ window.app = {
       modal.classList.remove('active');
       modal.style.display = '';
     }
-  },
-  scanBadge: function() {
-    showToast('Сканування бейджу (Імітація)...', 'info');
-    // For MVP, just auto-select the first worker if available
-    if(dom.mobileWorkerSelect && dom.mobileWorkerSelect.options.length > 1) {
-        dom.mobileWorkerSelect.selectedIndex = 1;
-        showToast('Бейдж відскановано!', 'success');
-    }
-  },
-  stopScanner: function() {
-    if (state.scanner) {
-      state.scanner.clear();
-      state.scanner = null;
-      if (dom.qrReader) dom.qrReader.style.display = 'none';
-    }
   }
 };
-
-function startScanner() {
-  if (!window.Html5Qrcode) {
-      showToast('Сканнер недоступний', 'error');
-      return;
-  }
-  if (state.scanner) {
-      state.scanner.clear();
-      state.scanner = null;
-      if (dom.qrReader) dom.qrReader.style.display = 'none';
-      return;
-  }
-
-  if (dom.qrReader) dom.qrReader.style.display = 'block';
-  state.scanner = new Html5Qrcode("qr-reader");
-  state.scanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      (decodedText) => {
-          state.scanner.stop().then(() => {
-              state.scanner = null;
-              if (dom.qrReader) dom.qrReader.style.display = 'none';
-              processScannedQR(decodedText);
-          });
-      },
-      (errorMessage) => {
-          // ignore scan errors
-      }
-  ).catch(err => {
-      showToast('Помилка доступу до камери', 'error');
-  });
-}
-
-async function processScannedQR(qrCode) {
-    try {
-        const data = await Services.Pallets.getByQR(qrCode);
-        state.activePallet = data.pallet;
-        showToast('Палету знайдено', 'success');
-
-        const tasks = data.availableOperations || [];
-        if (tasks.length > 0) {
-            state.activeTask = tasks[0]; // take first available task
-            renderTaskDetails();
-        } else {
-            showToast('Немає доступних завдань для цієї палети', 'warning');
-        }
-    } catch (e) {
-        // Error handled in API wrapper
-    }
-}
-
-function renderTaskDetails() {
-    if (!dom.taskDetails || !state.activeTask) return;
-    
-    const task = state.activeTask;
-    dom.taskDetails.style.display = 'block';
-    
-    // Update task UI details
-    const statusEl = document.getElementById('td-status');
-    if (statusEl) statusEl.innerText = task.status || 'PENDING';
-    
-    // Button states
-    const status = task.status;
-    if (dom.btnTaskStart) dom.btnTaskStart.disabled = status !== 'PENDING' && status !== 'READY';
-    if (dom.btnTaskPause) dom.btnTaskPause.disabled = status !== 'IN_PROGRESS';
-    if (dom.btnTaskResume) dom.btnTaskResume.disabled = status !== 'PAUSED';
-    if (dom.btnTaskComplete) dom.btnTaskComplete.disabled = status !== 'IN_PROGRESS';
-
-    if (status === 'IN_PROGRESS') {
-        startTaskTimer();
-    } else {
-        stopTaskTimer();
-    }
-}
-
-function startTaskTimer() {
-    if (state.timerInterval) clearInterval(state.timerInterval);
-    state.taskStartTime = Date.now();
-    
-    state.timerInterval = setInterval(() => {
-        if (!dom.taskTimer) return;
-        const elapsed = Math.floor((Date.now() - state.taskStartTime) / 1000);
-        const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
-        const secs = String(elapsed % 60).padStart(2, '0');
-        dom.taskTimer.innerText = `${mins}:${secs}`;
-    }, 1000);
-}
-
-function stopTaskTimer() {
-    if (state.timerInterval) {
-        clearInterval(state.timerInterval);
-        state.timerInterval = null;
-    }
-}
-
-async function handleTaskAction(action) {
-    if (!state.activeTask || !state.currentWorker) return;
-    const taskId = state.activeTask.id;
-    const workerId = state.currentWorker.id;
-    
-    try {
-        let updatedTask;
-        if (action === 'start') updatedTask = await Services.Tasks.start(taskId, workerId);
-        else if (action === 'pause') updatedTask = await Services.Tasks.pause(taskId, workerId);
-        else if (action === 'resume') updatedTask = await Services.Tasks.resume(taskId, workerId);
-        else if (action === 'complete') updatedTask = await Services.Tasks.complete(taskId, workerId);
-        
-        state.activeTask = updatedTask;
-        showToast('Статус завдання оновлено', 'success');
-        renderTaskDetails();
-    } catch (e) {
-        showToast(e.message || 'Не вдалося виконати дію', 'error');
-    }
-}
 
 function setupEventListeners() {
   dom.navItems.forEach(item => {
@@ -1193,7 +1062,8 @@ function setupEventListeners() {
     }
     if (e.target.matches('.btn-generate-qr')) {
       const code = e.target.dataset.code;
-      generatePalletQR(code);
+      const label = e.target.dataset.label;
+      generatePalletQR(code, label);
     }
     
     if (e.target.matches('.btn-pallet-details')) {
@@ -1316,13 +1186,6 @@ function setupEventListeners() {
       });
   }
 
-  if (dom.loginBtn) {
-    if (dom.loginBtn) dom.loginBtn.addEventListener('click', handleWorkerLogin);
-    if (dom.btnScanPost) dom.btnScanPost.addEventListener('click', () => showToast('Відскануйте QR-код посту', 'info'));
-    if (dom.btnScanPallet) dom.btnScanPallet.addEventListener('click', startScanner);
-  }
-
-
   const workerRegForm = document.getElementById('form-register-worker');
   if (workerRegForm) {
       workerRegForm.addEventListener('submit', async (e) => {
@@ -1367,16 +1230,6 @@ function setupEventListeners() {
           }
       });
   }
-
-  if (dom.startScanBtn) {
-    // Legacy bindings removed to avoid conflicts
-    // dom.startScanBtn.addEventListener('click', startScanner);
-  }
-
-  if (dom.btnTaskStart) dom.btnTaskStart.addEventListener('click', () => handleTaskAction('start'));
-  if (dom.btnTaskPause) dom.btnTaskPause.addEventListener('click', () => handleTaskAction('pause'));
-  if (dom.btnTaskResume) dom.btnTaskResume.addEventListener('click', () => handleTaskAction('resume'));
-  if (dom.btnTaskComplete) dom.btnTaskComplete.addEventListener('click', () => handleTaskAction('complete'));
 
   if (dom.btnMobileMenu && dom.sidebar) {
     dom.btnMobileMenu.addEventListener('click', () => {
@@ -1699,18 +1552,6 @@ async function initApp() {
   if (state.isWorkerLoggedIn) {
       connectSSE();
   }
-  
-  // Populate mobile worker select - skipped for Supplier, who can't call GET /api/workers
-  // (that nav item is hidden for them anyway, see the SUPPLIER block above).
-  if (dom.mobileWorkerSelect && state.currentWorker?.systemRole !== 'SUPPLIER') {
-    try {
-      const workers = await Services.Workers.getAll();
-      dom.mobileWorkerSelect.innerHTML = '<option value="">Оберіть себе...</option>' +
-        workers.map(w => `<option value="${w.id}">${escapeHtml(w.name)}</option>`).join('');
-    } catch(e) {
-      console.error('Failed to load mobile workers', e);
-    }
-  }
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
@@ -1816,10 +1657,6 @@ if (document.getElementById('form-change-worker-pin')) {
     }
   });
 }
-if (document.getElementById('btn-worker-logout')) {
-  document.getElementById('btn-worker-logout').addEventListener('click', performLogout);
-}
-
 async function loadWorkersData() {
   try {
     const workers = await Services.Workers.getAll();
@@ -1878,9 +1715,7 @@ if (typeof module !== 'undefined' && module.exports) {
     state, dom, initDOM, showToast, connectSSE, 
     switchView, loadViewData, loadDashboardData, loadModelsData, 
     loadAssemblies, loadSeriesData, loadKanbanData, loadPalletsData, 
-    loadBatchesData, formatElapsed, loadOutsourceData, generatePalletQR, 
-    checkWorkerState, handleWorkerLogin, startScanner, processScannedQR, 
-    renderTaskDetails, startTaskTimer, stopTaskTimer, handleTaskAction, 
+    loadBatchesData, formatElapsed, loadOutsourceData, generatePalletQR,
     setupEventListeners, showDistributionModal, showPalletDetails, initApp
   };
 }

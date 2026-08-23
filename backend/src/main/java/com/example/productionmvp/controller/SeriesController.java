@@ -59,9 +59,27 @@ public class SeriesController {
     public ResponseEntity<com.example.productionmvp.dto.SeriesDTO> createSeries(@RequestBody com.example.productionmvp.dto.SeriesRequestDTO body) {
         UUID modelId = body.getModelId();
         String number = body.getNumber();
+
+        // Each of these used to fail as an opaque 500: a missing quantity unboxed a null
+        // Integer into a NullPointerException, and an unrecognised priority came out of
+        // valueOf as an unexplained IllegalArgumentException. Both are things the caller got
+        // wrong and can fix, so say which field and what was expected.
+        if (modelId == null) {
+            throw new IllegalArgumentException("Не вказано модель виробу (modelId).");
+        }
+        if (body.getPlannedQuantity() == null || body.getPlannedQuantity() < 1) {
+            throw new IllegalArgumentException("Кількість у серії має бути щонайменше 1.");
+        }
         int plannedQuantity = body.getPlannedQuantity();
+
         String priority = body.getPriority() != null ? body.getPriority() : "MEDIUM";
-        SeriesPriority seriesPriority = SeriesPriority.valueOf(priority.toUpperCase());
+        SeriesPriority seriesPriority;
+        try {
+            seriesPriority = SeriesPriority.valueOf(priority.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Невідомий пріоритет: " + priority
+                    + ". Доступні: " + java.util.Arrays.toString(SeriesPriority.values()));
+        }
         LocalDate plannedStartDate = body.getPlannedStartDate();
         LocalDate plannedEndDate = body.getPlannedEndDate();
         

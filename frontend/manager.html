@@ -36,10 +36,6 @@
                 <a href="#" class="nav-item" id="nav-outsource" data-view="outsource"><span class="nav-icon">OS</span><span class="nav-label">Аутсорс</span></a>
                 <a href="#" class="nav-item" id="nav-defects" data-view="defects"><i class="ph ph-warning-circle"></i><span>Брак</span></a>
                 <a href="#" class="nav-item" id="nav-history" data-view="history"><i class="ph ph-clock-counter-clockwise"></i><span>Аудит</span></a>
-                
-                <div class="nav-divider"></div>
-                
-                <a href="#" class="nav-item" id="nav-worker-mobile" data-view="worker-mobile"><i class="ph ph-device-mobile"></i><span>Працівник</span></a>
             </nav>
             <div class="sidebar-footer">
                 <div class="connection-status">
@@ -773,92 +769,6 @@
                 </section>
 
                 <!-- 5.12 Worker Mobile View -->
-                <section class="view-section mobile-optimized" id="view-worker-mobile">
-                    <!-- Login Screen -->
-                    <article id="worker-login" class="glass-card mobile-card">
-                        <h2 class="text-center mb-4">Авторизація Працівника</h2>
-                        <div class="form-group">
-                            <label for="mobile-worker-select">Оберіть себе зі списку:</label>
-                            <select id="mobile-worker-select" class="large-select"></select>
-                        </div>
-                        <div class="text-center my-2">або</div>
-                        <button class="btn btn-outline w-100 mb-4" onclick="app.scanBadge()">Відсканувати бейдж</button>
-                        
-                        <div class="form-group">
-                            <label for="mobile-worker-pin">PIN код (4 цифри):</label>
-                            <input type="password" inputmode="numeric" id="mobile-worker-pin" maxlength="4" pattern="\d{4}" class="large-input text-center" placeholder="••••">
-                        </div>
-                        <button class="btn btn-primary w-100 large-btn mt-2" id="btn-worker-login">Увійти</button>
-                    </article>
-
-                    <!-- Main Worker Interface (Hidden until login) -->
-                    <article id="worker-main-interface" class="hidden">
-                        <header class="worker-header glass-card mb-2">
-                            <div class="worker-avatar"></div>
-                            <div class="worker-info">
-                                <h3 id="mobile-current-worker">Ім'я Працівника</h3>
-                                <p class="text-muted"><span id="mobile-current-section">Дільниця</span> | <span id="mobile-current-post">Пост</span></p>
-                            </div>
-                            <button class="btn btn-outline btn-sm" id="btn-worker-logout">Вихід</button>
-                        </header>
-
-                        <div class="mobile-actions grid-2-cols gap-2 mb-4">
-                            <button class="btn btn-primary large-btn" id="btn-scan-post">Скан Посту</button>
-                            <button class="btn btn-accent large-btn" id="btn-scan-pallet">Скан Піддону</button>
-                        </div>
-
-                        <div id="qr-reader-container" class="glass-card mb-4 hidden">
-                            <div id="qr-reader" style="width: 100%;"></div>
-                            <button class="btn btn-outline w-100 mt-2" onclick="app.stopScanner()">Скасувати</button>
-                        </div>
-
-                        <!-- Pallet Info Card (Hidden until scanned) -->
-                        <div id="mobile-pallet-card" class="glass-card mb-4 hidden">
-                            <header class="pallet-header flex-row justify-between mb-2">
-                                <h3>Піддон: <span id="mobile-pallet-id" class="text-accent"></span></h3>
-                                <div id="mobile-pallet-qr" class="mini-qr"></div>
-                            </header>
-                            <div class="pallet-details mb-4">
-                                <p><strong>Виріб:</strong> <span id="mobile-pallet-product"></span></p>
-                                <p><strong>Категорія:</strong> <span id="mobile-pallet-category"></span></p>
-                                <p><strong>Нормо-час:</strong> <span id="mobile-pallet-time"></span> хв</p>
-                                
-                                <h4 class="mt-2">Попередні етапи:</h4>
-                                <div id="mobile-pallet-prev-stages" class="badges-container"></div>
-                                
-                                <h4 class="mt-2">Вузли на піддоні:</h4>
-                                <ul id="mobile-pallet-assemblies" class="styled-list"></ul>
-                                
-                                <h4 class="mt-2 text-warning">Необхідні матеріали:</h4>
-                                <ul id="mobile-pallet-materials" class="styled-list"></ul>
-                            </div>
-
-                            <div class="timer-display text-center mb-4 hidden" id="mobile-op-timer">
-                                00:00:00
-                            </div>
-
-                            <div class="mobile-action-buttons">
-                                <button class="btn btn-success large-btn w-100 mb-2" id="btn-start-op">Почати</button>
-                                <div class="grid-2-cols gap-2 mb-2 hidden" id="mobile-active-controls">
-                                    <button class="btn btn-warning large-btn" id="btn-pause-op">Пауза</button>
-                                    <button class="btn btn-info large-btn hidden" id="btn-resume-op">Продовжити</button>
-                                    <button class="btn btn-success large-btn" id="btn-complete-op">Завершити</button>
-                                </div>
-                                <button class="btn btn-danger large-btn w-100" id="btn-damage-op">Ушкоджено (Брак)</button>
-                            </div>
-                        </div>
-
-                        <!-- Available Tasks List -->
-                        <div class="glass-card">
-                            <h3>Доступні завдання</h3>
-                            <div id="mobile-tasks-list" class="task-list mt-2">
-                                <!-- Task cards go here -->
-                                <p class="text-muted text-center py-4">Немає доступних завдань</p>
-                            </div>
-                        </div>
-                    </article>
-                </section>
-
             </div>
         </main>
     </div>
@@ -872,34 +782,6 @@
             <div id="qr-modal-code" class="qr-container bg-white p-2 border-radius-sm d-inline-block mb-4"></div>
             <div>
                 <button class="btn btn-outline" onclick="app.closeModal('qr-modal')">Закрити</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Confirmation Modal -->
-    <div id="confirm-modal" class="modal">
-        <div class="modal-content glass-card">
-            <h3 id="confirm-title">Підтвердження</h3>
-            <p id="confirm-message" class="my-4">Ви впевнені, що хочете виконати цю дію?</p>
-            <div class="flex-row justify-end gap-2">
-                <button class="btn btn-outline" id="btn-confirm-cancel">Скасувати</button>
-                <button class="btn btn-primary" id="btn-confirm-ok">Підтвердити</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Detail Modal -->
-    <div id="detail-modal" class="modal">
-        <div class="modal-content glass-card modal-lg">
-            <div class="flex-row justify-between mb-4 border-bottom pb-2">
-                <h3 id="detail-title">Деталі</h3>
-                <button class="btn-close" onclick="app.closeModal('detail-modal')">✕</button>
-            </div>
-            <div id="detail-body" class="detail-content">
-                <!-- Dynamic content -->
-            </div>
-            <div class="flex-row justify-end mt-4 pt-2 border-top">
-                <button class="btn btn-outline" onclick="app.closeModal('detail-modal')">Закрити</button>
             </div>
         </div>
     </div>
@@ -953,7 +835,6 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <div class="modal-overlay hidden" id="modal-distribution" style="z-index: 10000; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;">
       <div class="modal-content glass-card" style="width: 400px; padding: 2rem; position: relative;">

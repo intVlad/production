@@ -160,11 +160,69 @@ class AuthServiceTest {
     @Test
     void generateQrBadge_WorkerNotFound_ThrowsException() {
         UUID nonExistentId = UUID.randomUUID();
-        
+
         when(workerRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
         EntityNotFoundException exception = assertThrows(EntityNotFoundException.class, () -> authService.generateQrBadge(nonExistentId));
         assertEquals("Worker not found", exception.getMessage());
         verify(workerRepository, never()).save(any(Worker.class));
+    }
+
+    // The "Менеджер"/"ТВ" login cards identify a person by PIN alone, so two accounts sharing
+    // a PIN means one of them silently receives the other's identity and role.
+    @Test
+    void setWorkerPin_PinAlreadyUsedByAnotherWorker_Rejected() {
+        Worker existing = new Worker();
+        existing.setId(UUID.randomUUID());
+        existing.setPinHash(passwordEncoder.encode("1234"));
+
+        when(workerRepository.findById(worker.getId())).thenReturn(Optional.of(worker));
+        when(workerRepository.findAll()).thenReturn(Arrays.asList(existing));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> authService.setWorkerPin(worker.getId(), "1234"));
+        assertTrue(ex.getMessage().contains("вже використовує"));
+        verify(workerRepository, never()).save(any(Worker.class));
+    }
+
+    // Re-saving your own current PIN is not a collision with anyone.
+    @Test
+    void setWorkerPin_SameWorkerKeepingOwnPin_Allowed() {
+        worker.setPinHash(passwordEncoder.encode("1234"));
+
+        when(workerRepository.findById(worker.getId())).thenReturn(Optional.of(worker));
+        when(workerRepository.findAll()).thenReturn(Arrays.asList(worker));
+
+        authService.setWorkerPin(worker.getId(), "1234");
+
+        verify(workerRepository).save(any(Worker.class));
+    }
+
+    @Test
+    void assertPinAvailable_UnusedPin_Passes() {
+        Worker existing = new Worker();
+        existing.setId(UUID.randomUUID());
+        existing.setPinHash(passwordEncoder.encode("9999"));
+
+        when(workerRepository.findAll()).thenReturn(Arrays.asList(existing));
+
+        assertDoesNotThrow(() -> authService.assertPinAvailable("1234", null));
+    }
+
+    // Data created before the uniqueness check existed can still hold duplicates: refuse to
+    // guess which of them the person typing the PIN meant, rather than handing out whichever
+    // row the database returned first.
+    @Test
+    void loginWithPin_AmbiguousPinAcrossWorkers_FailsClosed() {
+        Worker a = new Worker();
+        a.setId(UUID.randomUUID());
+        a.setPinHash(passwordEncoder.encode("1234"));
+        Worker b = new Worker();
+        b.setId(UUID.randomUUID());
+        b.setPinHash(passwordEncoder.encode("1234"));
+
+        when(workerRepository.findAll()).thenReturn(Arrays.asList(a, b));
+
+        assertThrows(IllegalStateException.class, () -> authService.loginWithPin("1234"));
     }
 }

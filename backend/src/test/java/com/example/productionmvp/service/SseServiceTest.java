@@ -37,7 +37,19 @@ public class SseServiceTest {
         assertNotNull(emitters);
         assertEquals(1, emitters.size());
         assertTrue(emitters.contains(emitter));
-        assertEquals(60000L, ReflectionTestUtils.getField(emitter, "timeout"));
+        // Was 60s, which expired the stream on any floor quiet enough to produce no task
+        // activity for a minute; the heartbeat keeps live clients well inside this window.
+        assertEquals(30 * 60 * 1000L, ReflectionTestUtils.getField(emitter, "timeout"));
+    }
+
+    // The response stayed uncommitted until the first real broadcast, so EventSource never
+    // fired onopen and the UI could not tell a live feed from a dead one.
+    @Test
+    public void testAddEmitter_SendsImmediateHandshake() throws Exception {
+        try (org.mockito.MockedConstruction<SseEmitter> mocked = mockConstruction(SseEmitter.class)) {
+            SseEmitter emitter = sseService.addEmitter();
+            verify(emitter, times(1)).send(any(SseEmitter.SseEventBuilder.class));
+        }
     }
 
     @Test

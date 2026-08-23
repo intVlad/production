@@ -58,6 +58,34 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(ex, HttpStatus.CONFLICT);
     }
 
+    // Without these three, the catch-all below turned every mistyped URL, wrong HTTP verb and
+    // malformed request body into a 500 "An unexpected error occurred" - which reads as "the
+    // server is broken" to the caller and buries genuine 500s in the log among routine client
+    // mistakes. A required field missing from the body (e.g. plannedQuantity) hit this path as
+    // a NullPointerException and told the manager nothing about what was actually wrong.
+    @ExceptionHandler({
+        org.springframework.web.servlet.resource.NoResourceFoundException.class,
+        org.springframework.web.servlet.NoHandlerFoundException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleNotFound(Exception ex) {
+        return buildErrorResponse(ex, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodNotSupported(Exception ex) {
+        return buildErrorResponse(ex, HttpStatus.METHOD_NOT_ALLOWED);
+    }
+
+    @ExceptionHandler({
+        org.springframework.http.converter.HttpMessageNotReadableException.class,
+        org.springframework.web.bind.MethodArgumentNotValidException.class,
+        org.springframework.web.bind.MissingServletRequestParameterException.class,
+        org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleBadRequest(Exception ex) {
+        return buildErrorResponse(ex, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneralException(Exception ex) {
         // Unlike the other handlers above, this branch means something wasn't anticipated —

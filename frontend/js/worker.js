@@ -600,12 +600,52 @@ async function processScannedQR(code, expectedType = 'pallet') {
     }
 }
 
+// A typed-in code can be either a pallet QR code or a post id (the two are separate id
+// spaces, so at most one of them resolves). Trying both means the worker doesn't have to
+// know which kind of label they're reading off, and never gets "Pallet not found" for a
+// perfectly valid post code.
+// Post QR codes carry the post's UUID; pallet QR codes are generated as "P-<...>" and are
+// never UUIDs, so the code's own shape says which lookup to try first. The other kind is
+// still attempted as a fallback, because guessing wrong should cost the operator a retry
+// at worst, never a flat "not found" for a code that is perfectly valid.
+// Probes the endpoints directly instead of delegating and catching: both processScannedQR
+// and processScannedPost swallow their own errors into a toast, so a failed first attempt
+// would never surface as an exception to fall back on.
+async function processManualCode(code) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(code);
+
+    const tryPost = async () => {
+        try {
+            await apiGet(`/posts/${code}`);
+            await processScannedPost(code);
+            return true;
+        } catch (e) { return false; }
+    };
+    const tryPallet = async () => {
+        try {
+            await Services.Pallets.getByQR(code);
+            await processScannedQR(code, 'pallet');
+            return true;
+        } catch (e) { return false; }
+    };
+
+    const order = isUuid ? [tryPost, tryPallet] : [tryPallet, tryPost];
+    for (const attempt of order) {
+        if (await attempt()) return;
+    }
+    showToast('Код не знайдено — це не піддон і не пост: ' + code, 'error');
+}
+
 // ТЗ §7: scanning the post QR gives the operator context (which post they're at) and the
 // list of tasks currently actionable there — independent of / complementary to pallet scanning.
 async function processScannedPost(postId) {
     try {
         const post = await apiGet(`/posts/${postId}`);
         state.currentPost = post;
+        // Moving to a post is a context switch away from whatever pallet was scanned before.
+        // Leaving the old pallet in state made later actions (e.g. re-rendering after a defect
+        // report) reach back to a pallet the operator is no longer working on.
+        state.activePallet = null;
         if (dom.currentSection) {
             dom.currentSection.innerText = post.name ? `Пост: ${post.name}` : '';
         }
@@ -644,11 +684,15 @@ async function renderPalletCard(pallet, assemblies, task) {
     if (!palletCard) return;
     palletCard.classList.remove('hidden');
     pallet = pallet || {};
-    if (dom.cardLabel) dom.cardLabel.innerText = 'Піддон';
+    // A task picked straight off the post's "available tasks" list has no pallet behind it,
+    // so labelling the card "Піддон: Порізка" and showing an empty "Категорія" described
+    // something the operator isn't actually looking at. Only call it a pallet when there is one.
+    const hasPallet = !!(pallet.qrCode || pallet.id);
+    if (dom.cardLabel) dom.cardLabel.innerText = hasPallet ? 'Піддон' : 'Завдання';
     document.getElementById('mobile-field-label-1').innerText = 'Виріб:';
     document.getElementById('mobile-field-label-2').innerText = 'Категорія:';
     document.getElementById('mobile-prev-stages-label').innerText = 'Попередні етапи:';
-    document.getElementById('mobile-assemblies-block').classList.remove('hidden');
+    document.getElementById('mobile-assemblies-block').classList.toggle('hidden', !hasPallet);
 
     document.getElementById('mobile-pallet-id').innerText = pallet.qrCode || pallet.id || (task ? task.operationName || 'Завдання без піддона' : '-');
     // Tasks picked from the post's "available tasks" list (no pallet scanned) don't have a
@@ -656,10 +700,17 @@ async function renderPalletCard(pallet, assemblies, task) {
     // directly, so prefer that over the pallet's owner-product before falling back.
     document.getElementById('mobile-pallet-product').innerText =
         (task && task.productInstanceSerialNumber) || pallet.ownerProduct?.productModel?.name || pallet.ownerProduct?.serialNumber || 'Невідомо';
-    document.getElementById('mobile-pallet-category').innerText = pallet.category || 'Невідомо';
+    const categoryRow = document.getElementById('mobile-pallet-category');
+    categoryRow.innerText = pallet.category || '—';
+    // Category belongs to a pallet, not to a task; hide the whole line when there is no pallet.
+    if (categoryRow.parentElement) categoryRow.parentElement.classList.toggle('hidden', !hasPallet);
     document.getElementById('mobile-pallet-time').innerText = task && task.normativeTimeMinutes != null ? task.normativeTimeMinutes : '-';
 
     const prevStagesEl = document.getElementById('mobile-pallet-prev-stages');
+    // Previous stages are read off the scanned pallet's assemblies, so without a pallet this
+    // is always an empty "Немає даних" placeholder - hide it rather than imply missing data.
+    document.getElementById('mobile-prev-stages-label').classList.toggle('hidden', !hasPallet);
+    if (prevStagesEl) prevStagesEl.classList.toggle('hidden', !hasPallet);
     if (prevStagesEl) {
         prevStagesEl.innerHTML = (assemblies || []).map(a => {
             const done = a.status === 'COMPLETED';
@@ -844,10 +895,31 @@ async function handleTaskAction(action) {
         state.activeTask = updatedTask;
         showToast('Статус завдання оновлено', 'success');
         renderTaskDetails();
+
+        // Completing a task leaves it in the post's "Доступні завдання" list still showing
+        // READY, so the operator can't tell it registered and may tap it again. Re-read the
+        // list from the post they scanned so it reflects what is actually still open.
+        if (action === 'complete') {
+            await refreshPostTaskList();
+        }
     } catch (e) {
         // apiFetch throws but never shows anything itself - without this a failed action
         // (e.g. post at full capacity, 409) looked identical to nothing happening at all.
         showToast(e.message || 'Не вдалося виконати дію', 'error');
+    }
+}
+
+// Re-reads the scanned post's open tasks. No-op when the operator got here by scanning a
+// pallet instead, since there is no post list on screen to refresh in that case.
+async function refreshPostTaskList() {
+    const postId = state.currentPost ? state.currentPost.id : null;
+    const workerId = state.currentWorker ? state.currentWorker.id : null;
+    if (!postId || !workerId) return;
+    try {
+        const tasks = await apiGet(`/posts/${postId}/available-tasks?workerId=${workerId}`);
+        renderAvailableTasksList(tasks || []);
+    } catch (e) {
+        console.error('Failed to refresh post task list', e);
     }
 }
 
@@ -974,8 +1046,15 @@ function setupEventListeners() {
       if (code) {
         // Manual entry is the fallback when the camera doesn't work, so it needs to respect
         // whichever of "Скан Посту"/"Скан Піддону" the worker pressed - not silently always
-        // treat the typed code as a pallet code.
-        processScannedQR(code, state.expectedScanType || 'pallet');
+        // treat the typed code as a pallet code. When neither was pressed (the normal case on
+        // a tablet with no working camera, where the worker just types a code off a printed
+        // label) there is no stated intent to respect, so resolve the code itself rather than
+        // guessing "pallet" and telling the worker their valid post code doesn't exist.
+        if (state.expectedScanType) {
+          processScannedQR(code, state.expectedScanType);
+        } else {
+          processManualCode(code);
+        }
         manualInput.value = '';
       } else {
         showToast('Введіть код', 'warning');
@@ -1134,9 +1213,20 @@ function setupEventListeners() {
         defectModal.classList.add('hidden');
         if (reasonInput) reasonInput.value = '';
 
-        // Re-fetch task state
+        // The task just reported as defective is no longer this operator's to work on, but
+        // the card kept showing a running timer and live "Пауза"/"Завершити" buttons for it.
+        stopTaskTimer();
+        state.activeTask = null;
+        const card = document.getElementById('mobile-pallet-card');
+        if (card) card.classList.add('hidden');
+
+        // Re-fetch task state. A task reached from the post's list has no pallet behind it,
+        // so refresh that list instead - otherwise the task just marked as defective stays
+        // on screen as if it were still open for work.
         if (state.activePallet) {
             processScannedQR(state.activePallet.qrCode || state.activePallet.id, 'pallet');
+        } else {
+            await refreshPostTaskList();
         }
       } catch (e) {
         showToast('Помилка фіксації браку', 'error');
@@ -1283,6 +1373,16 @@ function initApp() {
   }
   initDOM();
   setupEventListeners();
+
+  // "Працівник" was hardcoded in the markup and never replaced, so every operator's tablet
+  // showed the same placeholder instead of who is actually signed in. On a shared shop-floor
+  // device that matters: every task start/complete is attributed to whoever holds the
+  // session, and the operator had no way to notice they were working under someone else's.
+  const nameEl = document.getElementById('mobile-current-worker');
+  if (nameEl && state.currentWorker && state.currentWorker.name) {
+    nameEl.innerText = state.currentWorker.name;
+  }
+
   switchView('worker-mobile');
 }
 

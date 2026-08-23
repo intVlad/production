@@ -538,6 +538,17 @@ public class TaskExecutionService {
             timeLog.setEndTime(now);
             timeLog.setDurationSeconds(Duration.between(timeLog.getStartTime(), now).getSeconds());
             timeLogRepository.save(timeLog);
+
+            // Worker.totalWorkedMinutes is returned on every worker record the API serves but
+            // nothing ever wrote to it, so it reported 0 hours for everyone no matter how much
+            // work they had logged. Accumulated per closed log (not recomputed from the task)
+            // so a task worked by two people credits each with their own share.
+            Worker logWorker = timeLog.getWorker();
+            if (logWorker != null && timeLog.getDurationSeconds() != null) {
+                long previous = logWorker.getTotalWorkedMinutes() != null ? logWorker.getTotalWorkedMinutes() : 0L;
+                logWorker.setTotalWorkedMinutes(previous + (timeLog.getDurationSeconds() / 60));
+                workerRepository.save(logWorker);
+            }
         }
 
         long totalSeconds = timeLogRepository.findByTask(task).stream()
