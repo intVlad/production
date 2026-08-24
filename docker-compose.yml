@@ -49,12 +49,11 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: nginx:alpine
+    build:
+      context: ./frontend
     container_name: production_mvp_frontend
     ports:
       - "8000:80"
-    volumes:
-      - ./frontend:/usr/share/nginx/html:ro
     restart: unless-stopped
 
 volumes:
