@@ -4,3 +4,6 @@
 *.log
 node_modules/
 frontend/coverage/
+
+# Deployment secrets — the filled-in copy of .env.example must never be committed
+.env

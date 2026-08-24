@@ -24,6 +24,9 @@ public class DataSeeder implements CommandLineRunner {
     private final SeriesRepository seriesRepository;
     private final ProductInstanceRepository productInstanceRepository;
     private final AssemblyInstanceRepository assemblyInstanceRepository;
+    private final com.example.productionmvp.config.DeploymentMode deploymentMode;
+    private final boolean seedDemoData;
+    private final String bootstrapAdminPin;
 
     public DataSeeder(SectionRepository sectionRepository,
                       PostRepository postRepository,
@@ -34,7 +37,15 @@ public class DataSeeder implements CommandLineRunner {
                       OperationRepository operationRepository,
                       SeriesRepository seriesRepository,
                       ProductInstanceRepository productInstanceRepository,
-                      AssemblyInstanceRepository assemblyInstanceRepository) {
+                      AssemblyInstanceRepository assemblyInstanceRepository,
+                      com.example.productionmvp.config.DeploymentMode deploymentMode,
+                      @org.springframework.beans.factory.annotation.Value("${app.seed-demo-data:false}")
+                      boolean seedDemoData,
+                      @org.springframework.beans.factory.annotation.Value("${app.bootstrap-admin-pin:}")
+                      String bootstrapAdminPin) {
+        this.deploymentMode = deploymentMode;
+        this.seedDemoData = seedDemoData;
+        this.bootstrapAdminPin = bootstrapAdminPin;
         this.sectionRepository = sectionRepository;
         this.postRepository = postRepository;
         this.workerRepository = workerRepository;
@@ -47,9 +58,52 @@ public class DataSeeder implements CommandLineRunner {
         this.assemblyInstanceRepository = assemblyInstanceRepository;
     }
 
+    // Without the demo accounts a fresh production database has nobody in it, and there is no
+    // way to make the first account: creating a worker requires a manager or admin to already
+    // be signed in. That is a deployment that cannot be logged into at all. This creates the
+    // one account needed to get in and set everything else up through the UI, from a PIN the
+    // operator chooses, and only while the database is genuinely empty.
+    private void createBootstrapAdmin() {
+        if (workerRepository.count() > 0) {
+            return;
+        }
+        if (bootstrapAdminPin == null || bootstrapAdminPin.isBlank()) {
+            System.out.println("=================================================================");
+            System.out.println("This database has no accounts and none can be created without one.");
+            System.out.println("Restart once with APP_BOOTSTRAP_ADMIN_PIN set to a PIN of your");
+            System.out.println("choice to create the first administrator, then sign in and add");
+            System.out.println("the real accounts through the UI.");
+            System.out.println("=================================================================");
+            return;
+        }
+
+        Worker admin = new Worker();
+        admin.setName("Адміністратор");
+        admin.setRole("Адміністратор");
+        admin.setPosition("Системний адміністратор");
+        admin.setSystemRole(SystemRole.ADMIN);
+        admin.setPinHash(new BCryptPasswordEncoder().encode(bootstrapAdminPin.trim()));
+        workerRepository.save(admin);
+
+        System.out.println("Created the initial administrator account from APP_BOOTSTRAP_ADMIN_PIN. "
+                + "Change that PIN after signing in, and remove the variable from the environment.");
+    }
+
     @Override
     @Transactional
     public void run(String... args) throws Exception {
+        // These are demo accounts with PINs written down in this file and in the handover notes
+        // (7777 for a manager, 9999 for an admin). On the embedded database they vanish on the
+        // next restart. On a real database they would be permanent, and since the seeder only
+        // runs once against an empty schema, nobody would see it happen or think to remove
+        // them. Seeding is therefore opt-in for a persistent deployment.
+        if (deploymentMode.isPersistentDeployment() && !seedDemoData) {
+            System.out.println("Persistent database detected - skipping demo data. "
+                    + "Set APP_SEED_DEMO_DATA=true to seed it anyway (demo/staging only).");
+            createBootstrapAdmin();
+            return;
+        }
+
         if (sectionRepository.count() > 0) {
             System.out.println("Data already seeded. Skipping DataSeeder.");
             return;

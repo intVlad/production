@@ -5,12 +5,18 @@ spring:
   datasource:
     # Use Postgres if env vars are present (e.g. Docker/GCP), otherwise default to H2 in-memory
     url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:production_mvp;DB_CLOSE_DELAY=-1}
-    driverClassName: ${SPRING_DATASOURCE_DRIVER:org.h2.Driver}
+    # The driver is deliberately not pinned here. It used to default to org.h2.Driver, which
+    # meant anyone setting only SPRING_DATASOURCE_URL to a Postgres address - as
+    # docker-compose.yml did - got the H2 driver handed a Postgres URL and a failure to start.
+    # Spring Boot infers the driver from the URL, so one variable is enough to switch database.
     username: ${SPRING_DATASOURCE_USERNAME:sa}
     password: ${SPRING_DATASOURCE_PASSWORD:password}
   h2:
     console:
-      enabled: true
+      # Only useful when actually running on H2, and it has no business being reachable on a
+      # real deployment. Spring Security already requires authentication for it, but a browser
+      # SQL console is not something to leave switched on and rely on one guard for.
+      enabled: ${H2_CONSOLE_ENABLED:false}
   jpa:
     hibernate:
       ddl-auto: update

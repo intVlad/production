@@ -31,20 +31,32 @@ public class JwtUtil {
     private final long jwtExpirationMs;
 
     public JwtUtil(@Value("${jwt.secret}") String secret,
-                   @Value("${jwt.expiration-ms}") long expirationMs) {
+                   @Value("${jwt.expiration-ms}") long expirationMs,
+                   com.example.productionmvp.config.DeploymentMode deploymentMode) {
         if (INSECURE_DEFAULT_SECRET.equals(secret)) {
             // A logged warning didn't stop this from being live-exploitable: the app still
             // started and served traffic on the public secret, so anyone who forged a token
             // with it (trivial - it's sitting in this file, and application.yml, in plain
-            // sight) got in. Generating a fresh random key here instead means that attack no
-            // longer works even if JWT_SECRET is never configured - with zero deployment
-            // friction, since DataSeeder already regenerates every worker's UUID on every
-            // restart, so any previously-issued token is already dead after a restart anyway.
+            // sight) got in.
+            if (deploymentMode.isPersistentDeployment()) {
+                // Generating a key here was safe only while the database was in-memory: every
+                // account was recreated on restart anyway, so no session could outlive one.
+                // Against a real database the accounts persist and the key does not, which
+                // would sign every operator out on each restart and leave the deployment
+                // depending on a secret that exists nowhere. Refuse to start instead - this is
+                // one environment variable, and the alternative is a subtle, recurring outage.
+                throw new IllegalStateException(
+                        "JWT_SECRET is not set and this deployment uses a persistent database ("
+                        + deploymentMode.getDatasourceUrl() + "). Set JWT_SECRET to a unique, "
+                        + "persistent, base64-encoded value of at least 48 bytes. Generate one with: "
+                        + "openssl rand -base64 48");
+            }
             logger.warn("=================================================================");
-            logger.warn("SECURITY WARNING: jwt.secret is the public default from application.yml.");
+            logger.warn("jwt.secret is the public default from application.yml.");
             logger.warn("Generating a random in-memory secret for this run instead of using it.");
-            logger.warn("Tokens will stop working on the next restart. Set the JWT_SECRET");
-            logger.warn("environment variable to a unique, persistent value for a real deployment.");
+            logger.warn("Tokens stop working on restart - fine here, because this run uses an");
+            logger.warn("embedded database that is wiped on restart too. A persistent database");
+            logger.warn("refuses to start without JWT_SECRET.");
             logger.warn("=================================================================");
             this.secretKey = Keys.secretKeyFor(io.jsonwebtoken.SignatureAlgorithm.HS384);
         } else {
