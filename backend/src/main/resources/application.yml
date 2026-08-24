@@ -1,4 +1,7 @@
 spring:
+  lifecycle:
+    # How long graceful shutdown waits for in-flight requests before giving up.
+    timeout-per-shutdown-phase: 25s
   jackson:
     serialization:
       fail-on-empty-beans: false
@@ -28,7 +31,32 @@ spring:
         # dialect: org.hibernate.dialect.H2Dialect
 
 server:
+  # Railway (and most platforms) assign the port at runtime and expect the app to use it.
   port: ${PORT:8080}
+  # Without this, stopping the old instance during a deploy cuts whatever requests were in
+  # flight - an operator's "Завершити" tap turning into an error for no reason. Spring waits
+  # for them to finish instead, up to the timeout below.
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Health only. The other actuator endpoints expose configuration, environment
+        # variables and beans, which is far more than a readiness probe needs to know.
+        include: health
+  endpoint:
+    health:
+      # The platform needs to distinguish "still starting" from "up", and a health check that
+      # ignores the database would report a healthy instance that cannot serve a single request.
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 jwt:
   secret: ${JWT_SECRET:c2VjdXJlLXByb2R1Y3Rpb24tbXZwLWp3dC1zZWNyZXQta2V5LTI1Ni1iaXRzLW1pbmltdW0tcmVxdWlyZWQ=}

@@ -1,0 +1,4 @@
+# EnvironmentPostProcessors run before the application context exists, so they cannot be
+# registered as ordinary beans - they are discovered through this file.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.example.productionmvp.config.DatabaseUrlEnvironmentPostProcessor

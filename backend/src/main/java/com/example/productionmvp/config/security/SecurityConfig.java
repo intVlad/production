@@ -41,6 +41,23 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/api/auth/**")).permitAll()
+                // The hosting platform polls this to decide whether a newly started instance
+                // may receive traffic, and it has no credentials to offer. Only "health" is
+                // exposed at all (see application.yml) and it reports no details.
+                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/actuator/health")).permitAll()
+                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/actuator/health/**")).permitAll()
+                // The UI itself. It is served by this application in a deployed environment so
+                // that the browser's /api calls stay same-origin, which is also why there is no
+                // CORS involved there. These files contain no data - every screen fetches what
+                // it shows through /api, which still requires a token.
+                .requestMatchers(
+                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/"),
+                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/*.html"),
+                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/*.css"),
+                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/*.ico"),
+                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/js/**"),
+                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/css/**")
+                ).permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

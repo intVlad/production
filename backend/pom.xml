@@ -98,6 +98,14 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
+		<!-- Provides /actuator/health, which the hosting platform polls to decide whether a
+		     freshly started instance is ready to receive traffic. Without an endpoint that
+		     answers without a token, a zero-downtime deploy has no way to tell a starting
+		     instance from a broken one. Only health is exposed - see application.yml. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>

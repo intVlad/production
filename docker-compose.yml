@@ -1,8 +1,8 @@
-version: '3.8'
-
-# Copy .env.example to .env and fill it in before the first run. The backend refuses to start
-# against a persistent database without JWT_SECRET, and creates no accounts unless you give it
-# APP_BOOTSTRAP_ADMIN_PIN once.
+# Self-hosted deployment: one application container (API + UI) and a database.
+#
+# Copy .env.example to .env and fill it in before the first run. The application refuses to
+# start against a persistent database without JWT_SECRET, and creates no accounts unless you
+# give it APP_BOOTSTRAP_ADMIN_PIN once.
 
 services:
   db:
@@ -14,7 +14,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-production_mvp}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # Not published to the host: only the backend needs to reach the database, and mapping
+    # Not published to the host: only the application needs to reach the database, and mapping
     # 5432 outward exposes it to anything that can reach this machine.
     expose:
       - "5432"
@@ -25,10 +25,11 @@ services:
       retries: 10
     restart: unless-stopped
 
-  backend:
+  app:
     build:
-      context: ./backend
-    container_name: production_mvp_backend
+      # Repository root, so the image can bundle both the API and the UI - see Dockerfile.
+      context: .
+    container_name: production_mvp_app
     ports:
       - "8080:8080"
     environment:
@@ -40,20 +41,17 @@ services:
       # Only needed for the very first start, to create the one account you sign in with.
       # Remove it afterwards.
       APP_BOOTSTRAP_ADMIN_PIN: ${APP_BOOTSTRAP_ADMIN_PIN:-}
-      # The UI is served from the same host on a different port here, which is a different
-      # origin as far as the browser is concerned.
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:8000}
+      # Not set: the UI is served by this same container, so the browser never makes a
+      # cross-origin request and CORS is not involved.
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-    container_name: production_mvp_frontend
-    ports:
-      - "8000:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
     restart: unless-stopped
 
 volumes:

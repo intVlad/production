@@ -1,0 +1,11 @@
+# Never ship these into the image.
+frontend/node_modules
+frontend/package.json
+frontend/package-lock.json
+frontend/coverage
+backend/target
+.git
+.github
+*.md
+*.docx
+.env

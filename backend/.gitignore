@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# The UI is copied in at build time by the root Dockerfile, never committed here
+src/main/resources/static/
