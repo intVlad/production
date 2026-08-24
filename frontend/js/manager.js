@@ -1031,14 +1031,25 @@ function setupEventListeners() {
     btnUpdateStock.addEventListener('click', async () => {
       try {
         const materials = await Services.Materials.getAll();
-        if (!materials.length) return;
-        const names = materials.map((m, i) => `${i + 1}. ${m.name} (зараз: ${m.availableStock} ${m.unit || ''})`).join('\n');
-        const choice = prompt(`Оберіть номер матеріалу:\n${names}`);
-        const idx = parseInt(choice, 10) - 1;
-        if (isNaN(idx) || !materials[idx]) return;
-        const newStock = prompt(`Новий залишок для "${materials[idx].name}":`, materials[idx].availableStock);
-        if (newStock === null || isNaN(parseFloat(newStock))) return;
-        await Services.Materials.updateStock(materials[idx].id, parseFloat(newStock));
+        if (!materials.length) return showToast('Спочатку додайте матеріали', 'warning');
+
+        // Was a native prompt asking the storekeeper to read a numbered list and type the
+        // right number, because a browser prompt cannot hold a dropdown. It can here.
+        const picked = await uiDialog({
+          title: 'Оновити залишок',
+          confirmText: 'Зберегти',
+          fields: [
+            { label: 'Матеріал', type: 'select',
+              options: materials.map(m => ({ value: m.id, label: `${m.name} — зараз ${formatQty(m.availableStock)} ${m.unit || ''}` })) },
+            { label: 'Новий залишок', type: 'number', min: 0, step: 'any', value: '' }
+          ]
+        });
+        if (picked === null) return;
+
+        const [materialId, rawStock] = picked;
+        const newStock = parseFloat(rawStock);
+        if (isNaN(newStock) || newStock < 0) return showToast('Введіть залишок — число не менше 0', 'warning');
+        await Services.Materials.updateStock(materialId, newStock);
         showToast('Залишок оновлено', 'success');
         await loadMaterialsData();
       } catch (e) {
@@ -1049,7 +1060,7 @@ function setupEventListeners() {
   }
 
   // Event delegation for dynamically generated buttons
-  document.body.addEventListener('click', (e) => {
+  document.body.addEventListener('click', async (e) => {
 
 
     if (e.target.matches('.btn-load-assemblies')) {
@@ -1064,12 +1075,18 @@ function setupEventListeners() {
       // ТЗ §2.2: change to a model creates a NEW version, archiving the old one - the product
       // already in production keeps its old version. Blank input auto-bumps the last version
       // segment (v.1.0 -> v.1.1), matching what the backend already does when no version is sent.
-      const newVersion = prompt(`Нова версія моделі «${name}» (поточна: ${currentVersion || '?'}).\nЗалиште порожнім для автоматичного інкременту:`, '');
+      uiPrompt('Нова версія моделі', {
+        message: `Модель «${name}», поточна версія: ${currentVersion || '?'}.\nЗалиште порожнім для автоматичного інкременту.`,
+        label: 'Номер нової версії',
+        placeholder: 'напр. 2.0',
+        confirmText: 'Створити версію'
+      }).then(newVersion => {
       if (newVersion === null) return;
       Services.Models.createNewVersion(id, newVersion ? { version: newVersion } : {}).then(() => {
         showToast('Нову версію моделі створено, попередню архівовано', 'success');
         loadModelsData();
       }).catch(err => showToast(err.message || 'Не вдалося створити нову версію', 'error'));
+      });
     }
     if (e.target.closest('.btn-select-assembly')) {
       const card = e.target.closest('.btn-select-assembly');
@@ -1121,7 +1138,10 @@ function setupEventListeners() {
 
     if (e.target.matches('.btn-reopen-task')) {
       const taskId = e.target.dataset.taskId;
-      if (!confirm('Скасувати завершення цієї задачі? Вона повернеться у статус "В роботі".')) return;
+      const ok = await uiConfirm('Скасувати завершення?',
+        'Задача повернеться у статус «В роботі».',
+        { confirmText: 'Так, скасувати', danger: true });
+      if (!ok) return;
       const managerId = state.currentWorker ? state.currentWorker.id : null;
       Services.Tasks.reopen(taskId, managerId).then(() => {
         showToast('Завершення задачі скасовано', 'success');
@@ -1391,6 +1411,10 @@ function setupEventListeners() {
         showToast('Дільницю створено', 'success');
         formCreateSection.reset();
         await loadSectionsData();
+        // The operation form's dropdowns are filled once when the page loads, so without this
+        // a section created now does not appear in them until a reload - and on a freshly
+        // deployed system, where nothing exists yet, they stay empty however much you create.
+        await loadOperationDropdowns();
       } catch (err) {
         console.error(err);
       }
@@ -1410,6 +1434,7 @@ function setupEventListeners() {
         showToast('Пост створено', 'success');
         formCreatePost.reset();
         await loadSectionsData();
+        await loadOperationDropdowns();
       } catch (err) {
         console.error(err);
       }

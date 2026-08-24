@@ -38,6 +38,33 @@ public class AuthController {
         return request.getRemoteAddr();
     }
 
+    // Which roles each sign-in screen may admit. Kept here rather than taken from the request,
+    // so the caller names the screen and the server decides what that screen is allowed to do.
+    // ТЗ §12.2 groups Диспетчер/Керівник/Постачальник into one "web login" class: all three
+    // land on manager.html, which then shows and hides sections by role.
+    private static final Map<String, java.util.Set<com.example.productionmvp.model.SystemRole>> LOGIN_CONTEXTS = Map.of(
+            "MANAGER", java.util.EnumSet.of(
+                    com.example.productionmvp.model.SystemRole.MANAGER,
+                    com.example.productionmvp.model.SystemRole.ADMIN,
+                    com.example.productionmvp.model.SystemRole.DISPATCHER,
+                    com.example.productionmvp.model.SystemRole.SUPPLIER),
+            "WORKER", java.util.EnumSet.of(com.example.productionmvp.model.SystemRole.WORKER),
+            "TV", java.util.EnumSet.of(com.example.productionmvp.model.SystemRole.TV));
+
+    /**
+     * True when this worker may sign in on the screen the request came from. An unrecognised
+     * context is refused rather than waved through, so a typo in the caller cannot quietly
+     * disable the check.
+     */
+    private boolean allowedOnScreen(String loginContext, Worker worker) {
+        if (loginContext == null || loginContext.isBlank()) {
+            return true;
+        }
+        java.util.Set<com.example.productionmvp.model.SystemRole> allowed =
+                LOGIN_CONTEXTS.get(loginContext.trim().toUpperCase());
+        return allowed != null && worker.getSystemRole() != null && allowed.contains(worker.getSystemRole());
+    }
+
     @PostMapping("/login/pin")
     public ResponseEntity<?> loginWithPin(@RequestBody com.example.productionmvp.dto.AuthRequestDTO body, HttpServletRequest request) {
         UUID workerId = body.getWorkerId();
@@ -61,6 +88,16 @@ public class AuthController {
             } else {
                 worker = authService.loginWithPin(pin);
             }
+
+            // Refused before a token exists, and by throwing rather than returning, so this
+            // takes the same path as a wrong PIN: identical 401, identical body, and counted
+            // as a failed attempt by the rate limiter. Telling the caller that the PIN was
+            // real but belonged elsewhere would answer the one question they should not be
+            // able to ask.
+            if (!allowedOnScreen(body.getLoginContext(), worker)) {
+                throw new IllegalStateException("Login not permitted from this screen");
+            }
+
             String token = jwtUtil.generateToken(worker.getId().toString(), "ROLE_" + worker.getSystemRole().name());
             keys.forEach(rateLimiter::recordSuccess);
 

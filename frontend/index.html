@@ -325,38 +325,25 @@
                 btn.innerText = 'Завантаження...';
                 btn.disabled = true;
                 
-                const payload = { pin };
+                // The server decides whether this role may sign in on this screen, and refuses
+                // before issuing a token. The checks that used to live below did it afterwards,
+                // by which point a usable token had already been handed out.
+                const payload = { pin, loginContext: selectedRole };
                 if (selectedRole === 'WORKER' && workerId) {
                     payload.workerId = workerId;
                 }
-                
+
                 const res = await apiPost('/auth/login/pin', payload);
                 const role = res.worker.systemRole || 'WORKER';
 
-                // The PIN here used to be matched against every worker with no role check at
-                // all, so setting up the TV screen with your own personal PIN (manager, admin,
-                // anyone) put that real, full-privilege token in a URL left running on a
-                // shop-floor display indefinitely. It now only accepts the PIN of a dedicated
-                // TV-role account (SystemRole.TV), which has no access to anything beyond the
-                // handful of read-only endpoints tv.html actually calls - see DataSeeder's
-                // seeded "ТВ-Дисплей" account, or create more from Персонал in manager.html.
+                // Reaching this point means the server already accepted both the PIN and the
+                // screen it was typed on, so there is nothing left to check here. The TV screen
+                // in particular only ever admits a dedicated TV-role account, whose token can
+                // read the dashboard and nothing else - which matters because that token sits
+                // in a URL on a display left running in the workshop.
                 if (selectedRole === 'TV') {
-                    if (role !== 'TV') {
-                        throw new Error("Цей PIN належить не ТВ-акаунту. Використайте PIN, створений спеціально для ТВ-дисплея.");
-                    }
                     window.location.href = `tv.html?token=${res.token}`;
                     return;
-                }
-
-                // Check the role BEFORE persisting anything - otherwise a PIN that's valid for
-                // some worker but the wrong role (e.g. a real worker's PIN entered on the
-                // "Менеджер" card) left a real, working token sitting in localStorage even
-                // though the login was rejected and the user never left this page.
-                // ТЗ §12.2 groups Диспетчер/Керівник/Постачальник as the same "web login"
-                // authorization class (vs. the worker's PIN-pad mobile flow) - all three land
-                // on manager.html, which then shows/hides screens by role (see initApp).
-                if (selectedRole === 'MANAGER' && !['MANAGER', 'ADMIN', 'DISPATCHER', 'SUPPLIER'].includes(role)) {
-                    throw new Error("У вас немає прав менеджера");
                 }
 
                 localStorage.setItem('token', res.token);
@@ -368,7 +355,14 @@
                     window.location.href = 'worker.html';
                 }
             } catch (err) {
-                showToast(err.message || 'Помилка входу', 'error');
+                // One message for every rejection. Distinguishing "no such PIN" from "that PIN
+                // belongs to someone who cannot sign in here" would confirm to whoever is
+                // typing that the PIN exists, which is the one thing the sign-in screen must
+                // not tell them.
+                showToast('Невірний PIN', 'error');
+                const pinField = document.getElementById('pin');
+                pinField.value = '';
+                pinField.focus();
             } finally {
                 btn.innerText = 'Увійти';
                 btn.disabled = false;

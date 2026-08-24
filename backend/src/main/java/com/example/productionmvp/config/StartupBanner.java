@@ -29,6 +29,11 @@ public class StartupBanner {
 
     @EventListener(ApplicationReadyEvent.class)
     public void report() {
+        // Worth stating plainly: timestamps are stored without a timezone, so if this clock is
+        // not the workshop's, every time on every screen is silently off by the difference.
+        logger.info("Clock: {} — current time {}", java.util.TimeZone.getDefault().getID(),
+                java.time.LocalDateTime.now().withNano(0));
+
         if (deploymentMode.isPersistentDeployment()) {
             logger.info("Database: {} (persistent)", deploymentMode.getDatasourceUrl());
             return;

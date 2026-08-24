@@ -940,7 +940,14 @@ async function handleBatchTaskAction(action) {
             renderTaskDetails();
         } else if (action === 'complete') {
             const plannedQty = state.activeBatch ? state.activeBatch.plannedQuantity : null;
-            const input = prompt('Скільки фактично оброблено?' + (plannedQty ? ` (план: ${plannedQty})` : ''), plannedQty || '');
+            const input = await uiPrompt('Фактично оброблено', {
+              message: plannedQty ? `За планом: ${plannedQty}` : '',
+              label: 'Кількість',
+              type: 'number',
+              min: 0,
+              value: plannedQty || '',
+              confirmText: 'Підтвердити'
+            });
             if (input === null) return;
             const actualQty = parseInt(input, 10);
             if (isNaN(actualQty) || actualQty < 0) {
