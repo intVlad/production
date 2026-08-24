@@ -33,6 +33,12 @@ spring:
 server:
   # Railway (and most platforms) assign the port at runtime and expect the app to use it.
   port: ${PORT:8080}
+  # Every hosting platform puts a proxy in front of the application, which terminates TLS and
+  # forwards the request internally over plain HTTP. Without this the application believes it
+  # is serving http://<internal-host>:8080, so a browser request from its own UI at
+  # https://<public-domain> looks like it came from somewhere else entirely - which made
+  # Spring treat same-origin requests as cross-origin and reject the login with 403.
+  forward-headers-strategy: framework
   # Without this, stopping the old instance during a deploy cuts whatever requests were in
   # flight - an operator's "Завершити" tap turning into an error for no reason. Spring waits
   # for them to finish instead, up to the timeout below.

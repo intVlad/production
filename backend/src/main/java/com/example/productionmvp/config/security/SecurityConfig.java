@@ -82,14 +82,19 @@ public class SecurityConfig {
             // server on an arbitrary port, so pinning an origin here would only cause friction.
             configuration.setAllowedOriginPatterns(Arrays.asList("*"));
         } else {
-            // A real deployment that never said which sites may call it. Any origin at all is
-            // not a safe assumption to make on the operator's behalf, so allow none and let the
-            // startup log say why - the frontend is normally served from the same origin as the
-            // API anyway (see docker-compose), in which case CORS is not involved at all.
-            logger.warn("app.cors.allowed-origins is not set on a persistent deployment - "
-                    + "cross-origin browser requests will be refused. Set it to the frontend's "
-                    + "origin (e.g. https://mes.example.com) if the UI is served from elsewhere.");
-            configuration.setAllowedOriginPatterns(Arrays.asList());
+            // A deployment that never named an allowed origin - the normal case, because the UI
+            // is served by this same application and so never makes a cross-origin request.
+            //
+            // Registering an empty allow-list here instead of no configuration was a mistake
+            // that took down sign-in entirely: behind a proxy the application sees its own UI's
+            // requests as cross-origin (see server.forward-headers-strategy), and an empty list
+            // means "reject", so every login returned 403. Declining to configure CORS at all
+            // leaves the request untouched and lets the browser enforce its own rule - a genuine
+            // cross-origin caller still gets nothing, because no CORS headers come back.
+            logger.info("app.cors.allowed-origins is not set; CORS is not configured. This is "
+                    + "correct when the UI is served by this application. Set it only if the UI "
+                    + "is hosted on a different origin.");
+            return request -> null;
         }
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
