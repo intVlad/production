@@ -544,7 +544,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="worker-pin">PIN код (4 цифри)</label>
-                                    <input type="password" inputmode="numeric" id="worker-pin" maxlength="4" pattern="\d{4}" required>
+                                    <input type="password" inputmode="numeric" id="worker-pin" minlength="4" maxlength="8" pattern="\d{4,8}" required>
                                 </div>
                                 <div class="form-group">
                                     <label for="worker-operations">Доступні операції (кваліфікація)</label>
@@ -797,7 +797,7 @@
                 <form id="form-change-password">
                     <div class="form-group">
                         <label>Новий PIN-код (4 цифри)</label>
-                        <input type="password" inputmode="numeric" id="new-password" class="form-control" required pattern="\d{4}" maxlength="4">
+                        <input type="password" inputmode="numeric" id="new-password" class="form-control" required pattern="\d{4,8}" minlength="4" maxlength="8">
                     </div>
                     <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
                         <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-change-password').classList.remove('active')">Скасувати</button>
@@ -820,7 +820,7 @@
                     <input type="hidden" id="worker-id-for-pin">
                     <div class="form-group">
                         <label>Новий PIN-код (4 цифри)</label>
-                        <input type="password" inputmode="numeric" id="new-worker-pin" class="form-control" required pattern="\d{4}" maxlength="4">
+                        <input type="password" inputmode="numeric" id="new-worker-pin" class="form-control" required pattern="\d{4,8}" minlength="4" maxlength="8">
                     </div>
                     <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
                         <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-change-worker-pin').classList.remove('active')">Скасувати</button>

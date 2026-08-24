@@ -167,7 +167,11 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <input type="password" inputmode="numeric" id="pin" required placeholder="PIN код (••••)" maxlength="4" pattern="\d{4}">
+                    <!-- 4 digits suits an operator tapping a shared tablet all shift, but it was
+                         also the hard maximum, which left the administrator account - the one that
+                         can do everything - with 10 000 possible PINs. The range is 4-8 so a
+                         manager or admin can pick something stronger without slowing the floor down. -->
+                    <input type="password" inputmode="numeric" id="pin" required placeholder="PIN код" minlength="4" maxlength="8" pattern="\d{4,8}">
                 </div>
                 <button type="submit" class="btn" id="login-btn">Увійти</button>
                 <button type="button" class="btn back-btn" onclick="backToRoles()">Назад</button>
