@@ -149,6 +149,7 @@
 
                         <article class="glass-card full-width">
                             <h3>Активні Завдання</h3>
+                            <p class="text-muted" id="dashboard-time-summary" style="margin-bottom:0.75rem;"></p>
                             <div class="table-responsive">
                                 <table class="glass-table" id="dashboard-tasks-table">
                                     <thead>
@@ -158,6 +159,8 @@
                                             <th>Статус</th>
                                             <th>Пріоритет</th>
                                             <th>Дедлайн</th>
+                                            <th>Норматив</th>
+                                            <th>Факт</th>
                                             <th>Дії</th>
                                         </tr>
                                     </thead>
@@ -181,6 +184,24 @@
                                 </div>
                             </article>
                         </div>
+
+                        <article class="glass-card full-width">
+                            <h3>Аутсорс — активні відправлення</h3>
+                            <div class="table-responsive">
+                                <table class="glass-table" id="dashboard-outsource-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Партнер</th>
+                                            <th>Робота</th>
+                                            <th>Статус</th>
+                                            <th>Минуло з відправки</th>
+                                            <th>Очікується назад</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </article>
 
                         <article class="glass-card full-width">
                             <h3>Активні Працівники</h3>
@@ -611,6 +632,14 @@
                                         <label for="post-section-select">Дільниця</label>
                                         <select id="post-section-select" required></select>
                                     </div>
+                                    <div class="form-group">
+                                        <label for="post-max-capacity">Місткість (скільки завдань одночасно)</label>
+                                        <input type="number" id="post-max-capacity" min="1" step="1" value="1" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="post-operation-types">Дозволені операції (через кому)</label>
+                                        <input type="text" id="post-operation-types" placeholder="напр. Порізка, Зварювання — порожньо = будь-яка операція">
+                                    </div>
                                     <button type="submit" class="btn btn-primary">Створити Пост</button>
                                 </form>
                             </article>
@@ -760,6 +789,8 @@
                                         <th>Операція</th>
                                         <th>Серія</th>
                                         <th>Партія</th>
+                                        <th>Норматив</th>
+                                        <th>Факт</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>

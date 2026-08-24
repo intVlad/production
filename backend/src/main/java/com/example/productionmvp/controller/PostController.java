@@ -60,7 +60,12 @@ public class PostController {
         Post post = new Post();
         if (body.getName() != null) post.setName(body.getName());
         if (body.getMaxCapacity() != null) post.setMaxCapacity(body.getMaxCapacity());
-        
+        // Left blank the post accepts any operation, which is the previous behaviour and the
+        // right default for a general-purpose bench.
+        if (body.getOperationTypes() != null && !body.getOperationTypes().isBlank()) {
+            post.setOperationTypes(body.getOperationTypes().trim());
+        }
+
         if (body.getSectionId() != null) {
             Section section = sectionRepository.findById(body.getSectionId()).orElseThrow(() -> new com.example.productionmvp.exception.EntityNotFoundException("Дільницю не знайдено"));
             post.setSection(section);

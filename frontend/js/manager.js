@@ -319,11 +319,39 @@ async function loadDashboardData() {
         ? '<p class="text-muted">Немає подій</p>'
         : data.recentHistory.map(h => `
             <div class="timeline-item">
-              <strong>${escapeHtml(h.action || '')}</strong>
+              <strong>${escapeHtml(historyActionLabel(h.action))}</strong>
               <div class="text-muted" style="font-size:0.85rem;">${escapeHtml(h.worker || '-')} · ${escapeHtml(h.taskSerial || '')} · ${h.timestamp ? new Date(h.timestamp).toLocaleString() : ''}</div>
               ${h.action === 'Task Completed' && h.taskStatus === 'COMPLETED' && h.taskId ? `<button class="btn btn-sm btn-outline btn-reopen-task" data-task-id="${h.taskId}" style="margin-top:4px;">Скасувати завершення</button>` : ''}
             </div>
           `).join('');
+    }
+
+    // Checklist §63: the dashboard should carry the outsource block with its deadlines. The
+    // counters were in the dashboard payload but the manager's dashboard rendered neither them
+    // nor the records, so an overdue part at a subcontractor was only visible to someone who
+    // thought to open the Аутсорс tab - which is the opposite of what a dashboard is for.
+    const outsourceTable = document.querySelector('#dashboard-outsource-table tbody');
+    if (outsourceTable) {
+      try {
+        const active = await Services.Outsource.getActive();
+        const records = Array.isArray(active) ? active : [];
+        const now = new Date();
+        outsourceTable.innerHTML = records.length === 0
+          ? '<tr><td colspan="5" class="text-center">Немає активних відправлень</td></tr>'
+          : records.map(r => {
+              const isOverdue = r.expectedReturnDate && new Date(r.expectedReturnDate) < now;
+              return `
+                <tr class="${isOverdue ? 'overdue-row' : ''}">
+                  <td>${escapeHtml(r.partner || '-')}</td>
+                  <td>${escapeHtml(r.workType || '-')}</td>
+                  <td>${escapeHtml(r.status)}</td>
+                  <td>${r.sentDate ? formatElapsed(r.sentDate) : 'ще не відправлено'}</td>
+                  <td>${r.expectedReturnDate ? new Date(r.expectedReturnDate).toLocaleDateString() : '-'}${isOverdue ? ' <span class="badge badge-danger">прострочено</span>' : ''}</td>
+                </tr>`;
+            }).join('');
+      } catch (e) {
+        console.error('Failed to load outsource for dashboard:', e);
+      }
     }
 
     const workersEl = document.getElementById('dashboard-workers');
@@ -364,6 +392,12 @@ async function loadDashboardData() {
           isOverdue = new Date(t.deadline) < now && t.status !== 'COMPLETED';
         }
         const isUrgent = t.priority === 'URGENT';
+        // Checklist §68 asks whether normative and actual time can be compared. Both numbers
+        // were already on every task the dashboard returned; nothing rendered either of them,
+        // so the comparison existed in the API and nowhere a manager could see it.
+        const norm = t.normativeTimeMinutes;
+        const fact = t.actualTimeMinutes;
+        const overrun = norm != null && fact != null && fact > norm;
         return `
           <tr class="${isOverdue ? 'overdue-task' : ''}">
             <td>${escapeHtml(t.series ? (t.series.name || t.series.id) : '-')}</td>
@@ -371,10 +405,23 @@ async function loadDashboardData() {
             <td>${escapeHtml(t.status)}</td>
             <td>${isUrgent ? '<span class="badge badge-danger">Терміново</span>' : escapeHtml(t.priority || '-')}</td>
             <td>${t.deadline ? new Date(t.deadline).toLocaleDateString() : '-'}</td>
+            <td>${norm != null ? norm + ' хв' : '-'}</td>
+            <td class="${overrun ? 'text-danger' : ''}">${fact != null ? fact + ' хв' : '-'}</td>
             <td>${isUrgent ? '' : `<button class="btn btn-sm btn-set-urgent" data-task-id="${t.id}">🔥 Терміново</button>`}</td>
           </tr>
         `;
       }).join('');
+    }
+
+    const timeSummaryEl = document.getElementById('dashboard-time-summary');
+    if (timeSummaryEl && data) {
+      const normH = Number(data.normativeHours || 0);
+      const factH = Number(data.totalHoursSpent || 0);
+      const delta = factH - normH;
+      const verdict = normH === 0 ? '' :
+        (delta > 0 ? ` — перевитрата ${delta.toFixed(1)} год` : ` — економія ${Math.abs(delta).toFixed(1)} год`);
+      timeSummaryEl.innerText =
+        `Норматив по завершених завданнях: ${normH.toFixed(1)} год · фактично відпрацьовано: ${factH.toFixed(1)} год${verdict}`;
     }
 
     const workerSelect = document.getElementById('dash-filter-worker');
@@ -826,6 +873,32 @@ async function loadMaterialsData() {
 // Checklist §39/§65-68: a real audit screen, not just the dashboard's last-10-events panel -
 // filterable by worker and date range so "хто, коли, що зробив" is actually answerable beyond
 // the last few minutes of activity.
+// Audit actions are stored in English because that is what the backend writes and what other
+// code matches on (the dashboard keys its "undo completion" button off the literal
+// "Task Completed"). Translating on the way to the screen instead of at the source keeps every
+// existing row and every match working, while the person reading the log sees their own
+// language - the rest of this application is entirely in Ukrainian.
+const HISTORY_ACTION_LABELS = {
+  'Task Created': 'Завдання створено',
+  'Task Started': 'Завдання розпочато',
+  'Task Paused': 'Пауза',
+  'Task Resumed': 'Роботу продовжено',
+  'Task Completed': 'Завдання завершено',
+  'Task Reopened': 'Завершення скасовано',
+  'Task Cancelled': 'Завдання скасовано',
+  'Task Marked Damaged': 'Зафіксовано брак',
+  'Task Unblocked': 'Завдання розблоковано',
+  'Task Blocked: insufficient materials': 'Заблоковано: не вистачає матеріалів'
+};
+
+function historyActionLabel(action) {
+  if (!action) return '-';
+  if (HISTORY_ACTION_LABELS[action]) return HISTORY_ACTION_LABELS[action];
+  // blockTask writes "Task Blocked: <reason>", where the reason is free text from the caller.
+  if (action.startsWith('Task Blocked: ')) return 'Заблоковано: ' + action.slice('Task Blocked: '.length);
+  return action;
+}
+
 async function loadHistoryData() {
   const tbody = document.querySelector('#history-table tbody');
   if (!tbody) return;
@@ -855,20 +928,28 @@ async function loadHistoryData() {
     const events = await Services.History.getFiltered(query);
     const eventList = Array.isArray(events) ? events : [];
 
-    tbody.innerHTML = eventList.length === 0 ? '<tr><td colspan="7" class="text-center">Немає подій</td></tr>' : eventList.map(h => `
+    tbody.innerHTML = eventList.length === 0 ? '<tr><td colspan="9" class="text-center">Немає подій</td></tr>' : eventList.map(h => {
+      // Red only when the operation actually ran over its norm - a longer-than-planned step is
+      // the one thing a manager is scanning this column for.
+      const overrun = h.normativeTimeMinutes != null && h.actualTimeMinutes != null
+        && h.actualTimeMinutes > h.normativeTimeMinutes;
+      return `
       <tr>
         <td>${h.timestamp ? new Date(h.timestamp).toLocaleString() : '-'}</td>
-        <td>${escapeHtml(h.action || '-')}</td>
+        <td>${escapeHtml(historyActionLabel(h.action))}</td>
         <td>${escapeHtml(h.workerName || 'Система')}</td>
         <td>${escapeHtml(h.productSerial || '-')}</td>
         <td>${escapeHtml(h.operationName || '-')}</td>
         <td>${escapeHtml(h.seriesNumber || '-')}</td>
         <td>${escapeHtml(h.batchNumber || '-')}</td>
+        <td>${h.normativeTimeMinutes != null ? h.normativeTimeMinutes + ' хв' : '-'}</td>
+        <td class="${overrun ? 'text-danger' : ''}">${h.actualTimeMinutes != null ? h.actualTimeMinutes + ' хв' : '-'}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
   } catch (e) {
     console.error('Failed to load history:', e);
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center">Не вдалося завантажити історію</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center">Не вдалося завантажити історію</td></tr>';
   }
 }
 
@@ -907,7 +988,7 @@ async function loadSectionsData() {
           <div class="mb-3 p-3 glass-card" style="border-left: 4px solid var(--primary-color);">
             <strong style="font-size: 1.1rem;">${escapeHtml(s.name)}</strong> ${s.location ? `<span class="text-muted">(${escapeHtml(s.location)})</span>` : ''}
             <ul style="margin-top: 10px; padding-left: 20px; list-style-type: disc;">
-              ${sectionPosts.map(p => `<li style="padding-bottom: 5px; display: flex; align-items: center; gap: 8px;"><span>${escapeHtml(p.name)}</span> <span class="badge badge-sm badge-info">Ємність: ${p.maxCapacity || 1}</span> <button class="btn btn-sm btn-outline btn-generate-qr" data-code="${p.id}" data-label="Пост: ${escapeHtml(p.name)}">QR</button></li>`).join('')}
+              ${sectionPosts.map(p => `<li style="padding-bottom: 5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;"><span>${escapeHtml(p.name)}</span> <span class="badge badge-sm badge-info">Ємність: ${p.maxCapacity || 1}</span> <span class="badge badge-sm">${p.operationTypes ? 'Операції: ' + escapeHtml(p.operationTypes) : 'Будь-які операції'}</span> <button class="btn btn-sm btn-outline btn-generate-qr" data-code="${p.id}" data-label="Пост: ${escapeHtml(p.name)}">QR</button></li>`).join('')}
               ${sectionPosts.length === 0 ? '<li class="text-muted">Немає постів</li>' : ''}
             </ul>
           </div>
@@ -924,14 +1005,18 @@ async function loadSectionsData() {
       loadsContainer.innerHTML = posts.map((p, i) => {
         const load = loads[i];
         if (!load) return '';
-        const currentLoad = load.currentLoad || 0;
-        const maxCapacity = p.maxCapacity || 1;
+        // GET /posts/{id}/load answers {current, max, available, queueSize}. This read
+        // "currentLoad", which is not a key it returns - so every post on this screen showed
+        // 0/N at 0%, including a post that was full and refusing new work at that moment.
+        const currentLoad = load.current || 0;
+        const maxCapacity = load.max || p.maxCapacity || 1;
+        const queueSize = load.queueSize || 0;
         const pct = Math.round((currentLoad / maxCapacity) * 100);
         return `
           <div class="mb-3 glass-card p-3">
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
               <strong>${escapeHtml(p.name)}</strong>
-              <span>${currentLoad}/${maxCapacity} (${pct}%)</span>
+              <span>${currentLoad}/${maxCapacity} (${pct}%) · черга: ${queueSize}</span>
             </div>
             <progress class="progress progress-primary w-full" value="${pct}" max="100"></progress>
           </div>
@@ -1436,7 +1521,12 @@ function setupEventListeners() {
         await Services.Posts.create({
           name: document.getElementById('post-name').value,
           sectionId: document.getElementById('post-section-select').value,
-          maxCapacity: 1
+          // Both of these were previously unreachable from the UI: capacity was hard-coded to 1
+          // (so a stapel that genuinely holds three units could never be described), and the
+          // post's allowed operations had no input at all, which left the "can this operation
+          // run at this post" guard in the backend permanently inert.
+          maxCapacity: parseInt(document.getElementById('post-max-capacity').value, 10) || 1,
+          operationTypes: document.getElementById('post-operation-types').value.trim()
         });
         showToast('Пост створено', 'success');
         formCreatePost.reset();
@@ -1559,11 +1649,14 @@ async function showPalletDetails(id) {
 
     const historyTbody = document.querySelector('#pallet-history-table tbody');
     if (history && history.length) {
+      // PalletMovement's fields are movedAt/movedBy. Reading them as timestamp/worker printed
+      // "Invalid Date" in the first column and a dash in the last one for every movement ever
+      // recorded - the data was there the whole time, the table just asked for the wrong names.
       historyTbody.innerHTML = history.map(h => `<tr>
-        <td>${new Date(h.timestamp).toLocaleString()}</td>
+        <td>${h.movedAt ? new Date(h.movedAt).toLocaleString() : '-'}</td>
         <td>${escapeHtml(h.fromPost ? h.fromPost.name : '-')}</td>
         <td>${escapeHtml(h.toPost ? h.toPost.name : '-')}</td>
-        <td>${escapeHtml(h.worker ? h.worker.name : '-')}</td>
+        <td>${escapeHtml(h.movedBy ? h.movedBy.name : '-')}</td>
       </tr>`).join('');
     } else {
       historyTbody.innerHTML = '<tr><td colspan="4">Немає історії</td></tr>';

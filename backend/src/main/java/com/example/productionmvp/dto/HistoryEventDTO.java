@@ -21,6 +21,12 @@ public class HistoryEventDTO {
     private String operationName;
     private String seriesNumber;
     private String batchNumber;
+    // Checklist §68: normative vs actual. The dashboard can only compare the two in aggregate,
+    // and only over tasks that are still open; the place a manager can ask "did THIS operation,
+    // done by THIS person, take longer than it should have" is the audit log, where the row for
+    // the completed task already exists. Both come off the task the event points at.
+    private Integer normativeTimeMinutes;
+    private Integer actualTimeMinutes;
 
     public HistoryEventDTO(HistoryEvent event) {
         this.id = event.getId();
@@ -32,6 +38,8 @@ public class HistoryEventDTO {
         }
         if (event.getTask() != null) {
             this.taskId = event.getTask().getId();
+            this.normativeTimeMinutes = event.getTask().getNormativeTimeMinutes();
+            this.actualTimeMinutes = event.getTask().getActualTimeMinutes();
         }
         this.productSerial = event.getProductInstance() != null ? event.getProductInstance().getSerialNumber() : null;
         this.operationName = event.getOperation() != null ? event.getOperation().getName()
@@ -50,4 +58,6 @@ public class HistoryEventDTO {
     public String getOperationName() { return operationName; }
     public String getSeriesNumber() { return seriesNumber; }
     public String getBatchNumber() { return batchNumber; }
+    public Integer getNormativeTimeMinutes() { return normativeTimeMinutes; }
+    public Integer getActualTimeMinutes() { return actualTimeMinutes; }
 }

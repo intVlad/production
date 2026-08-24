@@ -96,11 +96,17 @@ public class PalletService {
         Worker worker = workerRepository.findById(movedByWorkerId)
                 .orElseThrow(() -> new EntityNotFoundException("Worker not found"));
 
+        // Read before the pallet is moved: PalletMovement has a fromPost column that nothing
+        // ever wrote to, so every row in the pallet's movement history said only where it went,
+        // never where it came from - which is the half that makes a route readable.
+        Post fromPost = pallet.getCurrentPost();
+
         pallet.setCurrentPost(toPost);
         palletRepository.save(pallet);
 
         PalletMovement movement = new PalletMovement();
         movement.setPallet(pallet);
+        movement.setFromPost(fromPost);
         movement.setToPost(toPost);
         movement.setMovedBy(worker);
         movement.setMovedAt(LocalDateTime.now());
