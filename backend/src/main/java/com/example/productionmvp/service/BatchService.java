@@ -136,6 +136,12 @@ public class BatchService {
 
         batch.setStatus(BatchStatus.IN_PROGRESS);
         batch.setWorker(worker);
+        // Only the batch's *task* was stamped, never the batch itself, so BatchDTO.startTime -
+        // which reads Batch.startedAt - came back null for every batch that had ever been
+        // started, and "коли почали різати" had no answer anywhere in the API.
+        if (batch.getStartedAt() == null) {
+            batch.setStartedAt(LocalDateTime.now());
+        }
         batchRepository.save(batch);
 
         List<Task> batchTasks = taskRepository.findByBatchId(batch.getId());
@@ -246,7 +252,13 @@ public class BatchService {
         int newDist = currentDist + totalDistributedNow;
 
         if (newDist > batch.getActualQuantity()) {
-            throw new RuntimeException("Cannot distribute more than actual produced quantity");
+            // A bare RuntimeException falls through to the catch-all handler, so refusing this
+            // answered 500 "An unexpected error occurred" - which reads as "the system broke"
+            // rather than "you are trying to place more parts than were made". The rule is
+            // correct; only the way it was reported was not.
+            throw new IllegalStateException(String.format(
+                    "Не можна розподілити більше, ніж вироблено. Вироблено %d шт, вже розподілено %d, ви додаєте ще %d.",
+                    batch.getActualQuantity(), currentDist, totalDistributedNow));
         }
 
         batch.setDistributedQuantity(newDist);

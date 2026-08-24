@@ -343,8 +343,20 @@ class BatchServiceTest {
         Map<UUID, Integer> distribution = new HashMap<>();
         distribution.put(palletId, 30);
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> batchService.distributeBatch(batchId, distribution));
-        assertEquals("Cannot distribute more than actual produced quantity", exception.getMessage());
+        // IllegalStateException specifically, not any RuntimeException: GlobalExceptionHandler
+        // maps this type to 409 with the message passed through, while a bare RuntimeException
+        // falls to the catch-all and answers 500 "An unexpected error occurred" - which is what
+        // the caller used to see when they tried to place more parts than the batch produced.
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> batchService.distributeBatch(batchId, distribution));
+        assertTrue(exception.getMessage().contains("Не можна розподілити більше, ніж вироблено"),
+                "Operator-facing message, actual: " + exception.getMessage());
+        // The numbers matter: "you already placed 80 of 100 and are adding 30" is what makes
+        // the refusal actionable rather than just a rejection.
+        assertTrue(exception.getMessage().contains("100")
+                && exception.getMessage().contains("80")
+                && exception.getMessage().contains("30"),
+                "Message should state produced/distributed/attempted, actual: " + exception.getMessage());
 
         verify(batchRepository, never()).save(any());
     }
