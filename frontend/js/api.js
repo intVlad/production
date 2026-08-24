@@ -190,3 +190,97 @@ function uiConfirm(title, message, { confirmText = 'Підтвердити', dan
 function uiPrompt(title, { message, label, value = '', placeholder = '', type = 'text', min, step, confirmText = 'Зберегти' } = {}) {
   return uiDialog({ title, message, confirmText, fields: [{ label, value, placeholder, type, min, step }] });
 }
+
+/*
+ * Turns a <select> into something usable when it has more than a screenful of options.
+ *
+ * A native select gives no way to search: with a series of a thousand units, choosing the right
+ * one means scrolling a list of near-identical serial numbers. This keeps the original <select>
+ * as the value holder - so every form that reads .value keeps working unchanged - and puts a
+ * filter box and a filtered list in front of it.
+ */
+function makeSearchable(select, { placeholder = 'Почніть вводити для пошуку…', threshold = 12 } = {}) {
+  if (!select) return;
+
+  // Re-runs whenever the list is repopulated; drop the previous wrapper first.
+  if (select.dataset.searchable === 'true' && select.parentElement?.classList.contains('searchable')) {
+    select.parentElement.replaceWith(select);
+  }
+  select.dataset.searchable = '';
+  const options = [...select.options];
+  if (options.length <= threshold) return;   // a short list is easier as a plain dropdown
+
+  select.dataset.searchable = 'true';
+  select.style.display = 'none';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'searchable';
+  select.parentNode.insertBefore(wrap, select);
+  wrap.appendChild(select);
+
+  const field = document.createElement('input');
+  field.type = 'text';
+  field.className = 'form-control';
+  field.autocomplete = 'off';
+  field.placeholder = placeholder;
+  field.value = select.selectedIndex > 0 ? options[select.selectedIndex].text : '';
+
+  const panel = document.createElement('div');
+  panel.className = 'searchable-panel';
+  wrap.append(field, panel);
+
+  const MAX_SHOWN = 100;   // a thousand nodes in the DOM helps nobody; narrow the filter instead
+  let active = -1;
+
+  const render = (query = '') => {
+    const q = query.trim().toLowerCase();
+    const matches = options
+      .filter(o => o.value && o.text.toLowerCase().includes(q))
+      .slice(0, MAX_SHOWN);
+    active = -1;
+    if (!matches.length) {
+      panel.innerHTML = `<div class="searchable-empty">Нічого не знайдено</div>`;
+      return;
+    }
+    panel.innerHTML = matches
+      .map(o => `<div class="searchable-option" data-value="${escapeHtml(o.value)}">${escapeHtml(o.text)}</div>`)
+      .join('') + (matches.length === MAX_SHOWN
+        ? `<div class="searchable-empty">Показано перші ${MAX_SHOWN}. Уточніть пошук.</div>` : '');
+  };
+
+  const open = () => { render(field.value === pickedText() ? '' : field.value); wrap.classList.add('open'); };
+  const close = () => { wrap.classList.remove('open'); field.value = pickedText(); };
+  const pickedText = () => (select.selectedIndex > 0 ? options[select.selectedIndex].text : '');
+
+  const choose = value => {
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    close();
+  };
+
+  field.addEventListener('focus', open);
+  field.addEventListener('input', () => { wrap.classList.add('open'); render(field.value); });
+  field.addEventListener('keydown', e => {
+    const items = [...panel.querySelectorAll('.searchable-option')];
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!items.length) return;
+      active = e.key === 'ArrowDown'
+        ? Math.min(active + 1, items.length - 1)
+        : Math.max(active - 1, 0);
+      items.forEach((el, i) => el.classList.toggle('active', i === active));
+      items[active].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (items[active >= 0 ? active : 0]) choose(items[active >= 0 ? active : 0].dataset.value);
+    } else if (e.key === 'Escape') {
+      close();
+      field.blur();
+    }
+  });
+  panel.addEventListener('mousedown', e => {
+    const opt = e.target.closest('.searchable-option');
+    if (opt) { e.preventDefault(); choose(opt.dataset.value); }
+  });
+  document.addEventListener('click', e => { if (!wrap.contains(e.target)) close(); });
+}

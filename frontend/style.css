@@ -305,6 +305,18 @@ select option { background: var(--bg-color); color: var(--text-primary); }
 .modal-header { padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; }
 .modal-header h2 { font-size: 1.25rem; font-weight: 600; }
 .modal-body { overflow-y: auto; }
+/* Used by the modal headers but never defined, so the browser fell back to a default button:
+   a bright rounded box with a glyph in it, sitting where a quiet close control should be. */
+/* Searchable dropdown (see makeSearchable in api.js) — used where the list of options grows
+   with production volume and a native select stops being usable. */
+.searchable { position: relative; }
+.searchable-panel { display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 280px; overflow-y: auto; background: var(--bg-color); border: 1px solid var(--glass-border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); z-index: 1100; }
+.searchable.open .searchable-panel { display: block; }
+.searchable-option { padding: 0.6rem 0.9rem; cursor: pointer; color: var(--text-primary); font-size: 0.95rem; }
+.searchable-option:hover, .searchable-option.active { background: rgba(59, 130, 246, 0.18); }
+.searchable-empty { padding: 0.6rem 0.9rem; color: var(--text-muted); font-size: 0.85rem; }
+.btn-close { background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; line-height: 1; padding: 0.25rem 0.5rem; cursor: pointer; border-radius: var(--radius-sm); transition: color var(--transition-fast), background var(--transition-fast); }
+.btn-close:hover { color: var(--text-primary); background: var(--glass-bg-hover, rgba(255,255,255,0.06)); }
 .modal-footer { padding-top: 1.5rem; margin-top: 1.5rem; border-top: 1px solid var(--glass-border); display: flex; justify-content: flex-end; gap: 1rem; }
 .qr-container { background: white; padding: 1rem; border-radius: var(--radius-md); display: inline-block; }
 

@@ -591,6 +591,9 @@ async function loadPalletsData() {
           `<option value="${p.id}">${escapeHtml(s.number)} — ${escapeHtml(p.serialNumber)}</option>`)
       );
       productSelect.innerHTML = '<option value="">Оберіть виріб...</option>' + options.join('');
+      // Grows with production volume: a series of a thousand units puts a thousand
+      // near-identical serial numbers in here, which a native dropdown offers no way to search.
+      makeSearchable(productSelect, { placeholder: 'Пошук за серійним номером…' });
     }
   } catch (e) {
     console.error('Failed to load product instances for pallet dropdown:', e);
@@ -781,6 +784,7 @@ async function loadDefectAssemblyOptions() {
         `<option value="${a.id}">${escapeHtml(p.serialNumber)} — ${escapeHtml(a.assembly ? a.assembly.name : 'Вузол')} (${escapeHtml(a.status)})</option>`)
     );
     select.innerHTML = '<option value="">Оберіть вузол...</option>' + options.join('');
+    makeSearchable(select, { placeholder: 'Пошук за виробом або вузлом…' });
   } catch (e) {
     console.error('Failed to load assembly options for defect form:', e);
   }
@@ -959,8 +963,11 @@ function generatePalletQR(code, label) {
     } else {
         qrContainer.innerText = code;
     }
-    const modal = document.getElementById('qr-modal');
-    if (modal) modal.style.display = 'flex';
+    // .modal is already display:flex in the stylesheet and hidden by opacity:0 with
+    // pointer-events:none - visibility comes from the "active" class. Setting display here
+    // therefore changed nothing at all, and this dialog never appeared. Everything else in
+    // the application opens a modal through app.openModal; this now does the same.
+    app.openModal('qr-modal');
 }
 
 window.app = {
